@@ -16,7 +16,6 @@ class Appointment(Base):
     status = Column(String, default="BOOKED", nullable=False)  # "BOOKED", "CANCELLED", "RESCHEDULED", "COMPLETED"
     symptoms = Column(String, nullable=True)
     clinical_notes = Column(String, nullable=True)
-    prescriptions = Column(String, nullable=True)
     
     # Pre-visit AI Summary fields
     ai_urgency_level = Column(String, nullable=True)
@@ -38,6 +37,7 @@ class Appointment(Base):
     # Relationships
     patient = relationship("User", foreign_keys=[patient_id], backref="patient_appointments")
     doctor_profile = relationship("DoctorProfile", foreign_keys=[doctor_profile_id], backref="doctor_appointments")
+    prescriptions = relationship("Prescription", back_populates="appointment", cascade="all, delete-orphan")
 
     # Table arguments - Partial Unique Index to prevent double booking on active appointments
     __table_args__ = (
@@ -68,3 +68,18 @@ class SlotHold(Base):
     # Relationships
     patient = relationship("User", foreign_keys=[patient_id], backref="slot_holds")
     doctor_profile = relationship("DoctorProfile", foreign_keys=[doctor_profile_id], backref="slot_holds")
+
+
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    appointment_id = Column(Integer, ForeignKey("appointments.id", ondelete="CASCADE"), nullable=False, index=True)
+    medicine_name = Column(String, nullable=False)
+    dosage = Column(String, nullable=False)
+    frequency = Column(String, nullable=False)
+    duration = Column(String, nullable=False)
+    instructions = Column(String, nullable=True)
+
+    # Relationships
+    appointment = relationship("Appointment", back_populates="prescriptions")

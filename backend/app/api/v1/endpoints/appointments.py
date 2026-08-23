@@ -11,7 +11,7 @@ from app.api import deps
 from app.core.database import get_db, SessionLocal
 from app.models.user import User
 from app.models.doctor import DoctorProfile, WorkingHour, DoctorLeave
-from app.models.appointment import Appointment, SlotHold
+from app.models.appointment import Appointment, SlotHold, Prescription
 from app.schemas.appointment import (
     AvailabilityResponse,
     TimeSlot,
@@ -467,18 +467,43 @@ def complete_appointment(
             detail="You are not authorized to complete this appointment."
         )
 
+    # 1. Clear existing prescriptions for this appointment
+    db.query(Prescription).filter(Prescription.appointment_id == app.id).delete()
+
+    # 2. Add new structured prescriptions
+    for p_in in complete_in.prescriptions:
+        db_prescription = Prescription(
+            appointment_id=app.id,
+            medicine_name=p_in.medicine_name,
+            dosage=p_in.dosage,
+            frequency=p_in.frequency,
+            duration=p_in.duration,
+            instructions=p_in.instructions
+        )
+        db.add(db_prescription)
+
+    # 3. Update clinical notes and status
     app.clinical_notes = complete_in.clinical_notes
-    app.prescriptions = complete_in.prescriptions
     app.status = "COMPLETED"
 
     db.commit()
     db.refresh(app)
 
+    # 4. Format a text line of prescriptions to pass to LLM post-visit generator
+    pres_lines = []
+    for p in app.prescriptions:
+        line = f"{p.medicine_name} {p.dosage} ({p.frequency} for {p.duration})"
+        if p.instructions:
+            line += f" - Instructions: {p.instructions}"
+        pres_lines.append(line)
+    prescriptions_text = ", ".join(pres_lines)
+
+    # 5. Trigger post-visit AI summary translation in background
     background_tasks.add_task(
         process_post_visit_ai_summary,
         app.id,
         app.clinical_notes,
-        app.prescriptions
+        prescriptions_text
     )
 
     res = AppointmentResponse.model_validate(app)
