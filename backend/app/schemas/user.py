@@ -5,7 +5,8 @@ from pydantic import BaseModel, EmailStr
 
 class UserBase(BaseModel):
     email: EmailStr
-    role: str = "patient"
+    name: str
+    role: str = "PATIENT"
     is_active: bool = True
 
 
@@ -14,6 +15,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
+    name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
@@ -27,5 +29,3 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
-        # Pydantic v2 configuration
-        orm_mode = True

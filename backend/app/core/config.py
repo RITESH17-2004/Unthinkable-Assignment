@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     # Database Configuration
     DATABASE_URL: str
     
+    # JWT Configuration
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     # CORS Configuration
     # We allow a string JSON list (e.g., '["http://localhost:3000"]') or a comma-separated list
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]

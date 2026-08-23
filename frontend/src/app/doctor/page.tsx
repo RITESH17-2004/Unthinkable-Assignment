@@ -3,18 +3,105 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface UserProfile {
+interface DoctorProfile {
+  id: number;
+  user_id: number;
+  specialization: string;
+  slot_duration: number;
+  bio: string | null;
+}
+
+interface DoctorUser {
   id: number;
   name: string;
   email: string;
   role: string;
   is_active: boolean;
+  doctor_profile?: DoctorProfile;
+}
+
+interface WorkingHour {
+  id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
+
+interface DoctorLeave {
+  id: number;
+  leave_date: string;
+  reason: string | null;
 }
 
 export default function DoctorDashboard() {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<DoctorUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"profile" | "schedule">("profile");
   const router = useRouter();
+
+  // Profile Edit States
+  const [bio, setBio] = useState("");
+  const [slotDuration, setSlotDuration] = useState(30);
+  const [specialization, setSpecialization] = useState("");
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Doctor Schedule & Leave list
+  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [leaves, setLeaves] = useState<DoctorLeave[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  const fetchDoctorProfileAndSchedule = async (token: string) => {
+    try {
+      // 1. Fetch profile info
+      const res = await fetch("http://localhost:8000/api/v1/doctor/profile/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load doctor profile");
+      }
+
+      const userData: DoctorUser = await res.json();
+      setUser(userData);
+      
+      // Seed edit fields
+      if (userData.doctor_profile) {
+        setBio(userData.doctor_profile.bio || "");
+        setSlotDuration(userData.doctor_profile.slot_duration);
+        setSpecialization(userData.doctor_profile.specialization);
+      }
+
+      // 2. Fetch Working Hours & leaves
+      setScheduleLoading(true);
+      
+      // We can fetch working hours and leaves via the Admin-equivalent or create custom Doctor endpoints
+      // But since we want to restrict doctors to their own information, we fetch it from their profile
+      // Or we query schedule for the current logged-in doctor
+      const scheduleRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${userData.id}/schedule`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (scheduleRes.ok) {
+        const scheduleData = await scheduleRes.json();
+        setWorkingHours(scheduleData);
+      }
+
+      const leavesRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${userData.id}/leaves`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (leavesRes.ok) {
+        const leavesData = await leavesRes.json();
+        setLeaves(leavesData);
+      }
+    } catch (e: any) {
+      console.error(e);
+      localStorage.clear();
+      router.push("/login");
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -27,16 +114,12 @@ export default function DoctorDashboard() {
     }
 
     try {
-      const parsedUser: UserProfile = JSON.parse(storedUser);
+      const parsedUser = JSON.parse(storedUser);
       if (parsedUser.role.toUpperCase() !== "DOCTOR") {
-        // Role check redirect
-        const role = parsedUser.role.toUpperCase();
-        if (role === "ADMIN") router.push("/admin");
-        else if (role === "PATIENT") router.push("/patient");
-        else router.push("/login");
+        router.push("/login");
         return;
       }
-      setUser(parsedUser);
+      fetchDoctorProfileAndSchedule(token);
     } catch (e) {
       localStorage.clear();
       router.push("/login");
@@ -45,10 +128,44 @@ export default function DoctorDashboard() {
     }
   }, [router]);
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSuccess(false);
+    setEditError(null);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/doctor/profile/me/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bio,
+          slot_duration: slotDuration,
+          specialization,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update profile info");
+      }
+
+      setEditSuccess(true);
+      fetchDoctorProfileAndSchedule(token);
+    } catch (err: any) {
+      setEditError(err.message || "An error occurred.");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
   };
+
+  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   if (loading || !user) {
     return (
@@ -59,7 +176,7 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       {/* Navigation */}
       <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,7 +198,7 @@ export default function DoctorDashboard() {
               
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all duration-200 active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all duration-200"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -93,62 +210,159 @@ export default function DoctorDashboard() {
         </div>
       </header>
 
-      {/* Main Page Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+      <main className="max-w-4xl mx-auto px-6 py-8 flex-grow w-full">
         
-        {/* Welcome Section */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Profile Card Header */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Welcome, Dr. {user.name}
-            </h1>
-            <p className="text-slate-500 text-sm mt-1.5">
-              Access your clinical agenda, review pre-visit AI diagnostics, and create post-visit prescriptions.
-            </p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Doctor Dashboard</h1>
+            <p className="text-slate-500 text-sm mt-1.5">Manage your personal profile specialization, bio details, and view your schedule.</p>
           </div>
-          <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 border border-rose-100 rounded-full">
-            Doctor Portal
-          </span>
-        </div>
-
-        {/* Dashboard Grid Placeholders */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600 mb-4">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-base font-bold text-slate-800">Clinical Agenda</h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Review booked appointments, check-in statuses, and scheduled visit hours for today.
-            </p>
-          </div>
-
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 mb-4">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3 className="text-base font-bold text-slate-800">Pre-visit AI Diagnosis</h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Analyze AI urgency assessments and suggested clinical questions before patient check-in.
-            </p>
-          </div>
-
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 mb-4">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-base font-bold text-slate-800">Consultation Notes</h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Write medical notes, log symptoms, generate medication schedules and follow-up guides.
-            </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
+                activeTab === "profile" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              My Profile
+            </button>
+            <button
+              onClick={() => setActiveTab("schedule")}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
+                activeTab === "schedule" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              My Schedule
+            </button>
           </div>
         </div>
+
+        {/* TAB A: MY PROFILE */}
+        {activeTab === "profile" && (
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-950 mb-1">Clinical Information</h2>
+            <p className="text-xs text-slate-500 mb-6">Modify details visible to patients during slot bookings.</p>
+
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
+              {editSuccess && (
+                <div className="bg-emerald-50 text-emerald-800 text-xs p-3 rounded-lg border border-emerald-100 font-semibold">
+                  Profile updated successfully!
+                </div>
+              )}
+              {editError && (
+                <div className="bg-rose-50 text-rose-800 text-xs p-3 rounded-lg border border-rose-100 font-medium">
+                  {editError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Specialization</label>
+                  <input
+                    type="text"
+                    required
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    placeholder="Pediatrics, Orthopedics..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Appointment Slot Duration (mins)</label>
+                  <select
+                    value={slotDuration}
+                    onChange={(e) => setSlotDuration(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  >
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>60 minutes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Biography</label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  placeholder="Share a short summary of your medical career..."
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-md transition-all active:scale-[0.98]"
+                >
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB B: MY SCHEDULE */}
+        {activeTab === "schedule" && (
+          <div className="space-y-8">
+            {scheduleLoading ? (
+              <div className="bg-white border border-slate-100 rounded-2xl p-12 shadow-sm text-center">
+                <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <span className="text-slate-400 text-xs mt-3 block">Loading schedule data...</span>
+              </div>
+            ) : (
+              <>
+                {/* Working Hours */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-950 mb-1">Weekly Working Hours</h3>
+                  <p className="text-xs text-slate-500 mb-6">Assigned duty hours by administrators.</p>
+
+                  {workingHours.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">No working hours configured for you. Please contact administrator.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {workingHours.map((wh) => (
+                        <div key={wh.id} className="flex justify-between items-center py-3 text-sm">
+                          <span className="font-semibold text-slate-800">{weekdays[wh.day_of_week]}</span>
+                          <span className="text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded">
+                            {wh.start_time.substring(0, 5)} - {wh.end_time.substring(0, 5)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Leaves */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-950 mb-1">Registered Leave Days</h3>
+                  <p className="text-xs text-slate-500 mb-6">Your vacation and leave schedules.</p>
+
+                  {leaves.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">No leaves registered.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {leaves.map((leave) => (
+                        <div key={leave.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm flex justify-between items-center">
+                          <span className="font-semibold text-slate-800">
+                            {new Date(leave.leave_date).toLocaleDateString()}
+                          </span>
+                          {leave.reason && (
+                            <span className="text-slate-400 text-xs italic">({leave.reason})</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
       </main>
     </div>
