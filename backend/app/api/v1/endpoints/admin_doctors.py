@@ -278,6 +278,23 @@ def add_doctor_leave(
     db.commit()
     db.refresh(db_leave)
 
+    # Queue doctor leave alert emails in Celery
+    doctor_name = profile.user.name if profile.user else "Doctor"
+    for conflict in conflicting_list:
+        if conflict.patient_email and conflict.patient_email != "Unknown":
+            try:
+                from app.tasks.notification import send_leave_notifications
+                send_leave_notifications.delay(
+                    conflict.patient_email,
+                    conflict.patient_name,
+                    doctor_name,
+                    str(conflict.appointment_date),
+                    conflict.start_time.strftime("%H:%M")
+                )
+            except Exception as e:
+                # Silently catch Celery queuing failures so DB updates are preserved
+                pass
+
     return LeaveConflictResponse(
         leave_id=db_leave.id,
         leave_date=db_leave.leave_date,

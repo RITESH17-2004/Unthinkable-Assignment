@@ -293,6 +293,13 @@ def confirm_appointment_booking(
             detail="This slot was already booked. Please choose another slot."
         )
 
+    # Trigger Celery booking confirmation emails
+    try:
+        from app.tasks.notification import send_booking_confirmation
+        send_booking_confirmation.delay(db_appointment.id)
+    except Exception as e:
+        logger.error(f"Failed to queue booking confirmation Celery task: {e}")
+
     # Trigger pre-visit AI summary generation in background
     background_tasks.add_task(
         process_pre_visit_ai_summary,
@@ -370,7 +377,26 @@ def cancel_appointment(
             raise HTTPException(status_code=403, detail="Not authorized to cancel this appointment")
 
     app.status = "CANCELLED"
+
+    patient = db.query(User).filter(User.id == app.patient_id).first()
+    doc_user = db.query(User).join(DoctorProfile).filter(DoctorProfile.id == app.doctor_profile_id).first()
+
     db.commit()
+
+    if patient and doc_user:
+        try:
+            from app.tasks.notification import send_cancellation_email
+            send_cancellation_email.delay(
+                patient.email,
+                doc_user.email,
+                patient.name,
+                doc_user.name,
+                str(app.appointment_date),
+                app.start_time.strftime("%H:%M")
+            )
+        except Exception as e:
+            logger.error(f"Failed to queue cancellation Celery task: {e}")
+
     return {"message": "Appointment cancelled successfully"}
 
 
@@ -488,6 +514,13 @@ def complete_appointment(
 
     db.commit()
     db.refresh(app)
+
+    # Trigger medication reminders scheduler in Celery Beat
+    try:
+        from app.tasks.scheduler import schedule_medication_reminders
+        schedule_medication_reminders.delay(app.id)
+    except Exception as e:
+        logger.error(f"Failed to queue medication reminders Celery task: {e}")
 
     # 4. Format a text line of prescriptions to pass to LLM post-visit generator
     pres_lines = []

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     MISTRAL_API_KEY: str = ""
     MISTRAL_MODEL_NAME: str = "open-mistral-7b"
 
+    # Redis and SMTP Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAILS_FROM_EMAIL: str = "noreply@caresync.com"
+
     # CORS Configuration
     # We allow a string JSON list (e.g., '["http://localhost:3000"]') or a comma-separated list
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]

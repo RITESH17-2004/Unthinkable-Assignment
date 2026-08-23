@@ -30,6 +30,7 @@ class Appointment(Base):
     
     # AI Tracking
     ai_model_info = Column(String, nullable=True)
+    reminder_sent = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -38,6 +39,7 @@ class Appointment(Base):
     patient = relationship("User", foreign_keys=[patient_id], backref="patient_appointments")
     doctor_profile = relationship("DoctorProfile", foreign_keys=[doctor_profile_id], backref="doctor_appointments")
     prescriptions = relationship("Prescription", back_populates="appointment", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="appointment", cascade="all, delete-orphan")
 
     # Table arguments - Partial Unique Index to prevent double booking on active appointments
     __table_args__ = (

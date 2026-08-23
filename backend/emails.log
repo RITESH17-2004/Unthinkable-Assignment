@@ -1,0 +1,109 @@
+==================================================
+TIMESTAMP: 2026-08-23T17:44:26.698849Z
+TYPE:      BOOKING_CONFIRMATION
+TO:        patient.consult.1787502300@test.com
+FROM:      noreply@caresync.com
+SUBJECT:   Appointment Confirmed - CareSync
+BODY:
+Dear Consult Patient,
+
+Your appointment with Dr. John House (Diagnostic Medicine) has been confirmed.
+
+Details:
+  Date: 2026-08-25
+  Time: 09:00 - 09:30
+  Symptoms logged: Chronic knee swelling and moderate pain when bending for past 3 days.
+
+Thank you for choosing CareSync!
+==================================================
+
+==================================================
+TIMESTAMP: 2026-08-23T17:44:30.038665Z
+TYPE:      BOOKING_CONFIRMATION
+TO:        doctor@caresync.com
+FROM:      noreply@caresync.com
+SUBJECT:   New Patient Appointment Booked - CareSync
+BODY:
+Dear Dr. John House,
+
+A new appointment has been booked for you.
+
+Patient: Consult Patient
+Date: 2026-08-25
+Time: 09:00 - 09:30
+Symptoms: Chronic knee swelling and moderate pain when bending for past 3 days.
+
+Please check your dashboard for pre-visit AI diagnostics analysis.
+==================================================
+
+==================================================
+TIMESTAMP: 2026-08-23T17:44:31.608897Z
+TYPE:      CANCELLATION
+TO:        patient@test.com
+FROM:      noreply@caresync.com
+SUBJECT:   Appointment Cancelled - CareSync
+BODY:
+Dear John Patient,
+
+We wanted to inform you that your appointment with Dr. John House on 2026-08-25 at 09:00 has been cancelled.
+
+If you have any questions or would like to reschedule, please visit your portal.
+
+Best regards,
+CareSync Clinical Support
+==================================================
+
+==================================================
+TIMESTAMP: 2026-08-23T17:44:32.164321Z
+TYPE:      CANCELLATION
+TO:        doctor@test.com
+FROM:      noreply@caresync.com
+SUBJECT:   Patient Appointment Cancelled - CareSync
+BODY:
+Dear Dr. John House,
+
+Please note that your appointment with patient John Patient scheduled on 2026-08-25 at 09:00 has been cancelled.
+
+Your agenda has been updated accordingly.
+==================================================
+
+==================================================
+TIMESTAMP: 2026-08-23T17:44:33.358185Z
+TYPE:      LEAVE_ALERT
+TO:        patient@test.com
+FROM:      noreply@caresync.com
+SUBJECT:   Urgent: Doctor Leave Cancellation Notification - CareSync
+BODY:
+Dear John Patient,
+
+We regret to inform you that your upcoming appointment with Dr. John House on 2026-08-25 at 09:00 has been cancelled because the doctor will be out of office on leave.
+
+Please log in to your CareSync dashboard to search for another time slot or specialist at your earliest convenience.
+
+We apologize for the inconvenience.
+
+Warm regards,
+CareSync Support Team
+==================================================
+
+==================================================
+TIMESTAMP: 2026-08-23T17:44:33.972456Z
+TYPE:      MEDICATION_REMINDER
+TO:        patient@test.com
+FROM:      noreply@caresync.com
+SUBJECT:   Medication Reminder: Take Ibuprofen - CareSync
+BODY:
+Hi John Patient,
+
+This is a friendly reminder to take your prescribed medication: Ibuprofen.
+
+Prescription Details:
+  Dosage: 400mg
+  Schedule/Frequency: Twice daily
+
+Please take this medication as directed by your physician.
+
+Be well,
+CareSync Patient Support
+==================================================
+
