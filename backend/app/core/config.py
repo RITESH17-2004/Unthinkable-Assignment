@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # LLM Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL_NAME: str = "gemini-1.5-flash"
+    MISTRAL_API_KEY: str = ""
+    MISTRAL_MODEL_NAME: str = "open-mistral-7b"
+
     # CORS Configuration
     # We allow a string JSON list (e.g., '["http://localhost:3000"]') or a comma-separated list
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]

@@ -57,8 +57,24 @@ class AppointmentResponse(BaseModel):
     appointment_date: date
     start_time: time
     end_time: time
-    status: str  # "BOOKED", "CANCELLED", "RESCHEDULED"
+    status: str  # "BOOKED", "CANCELLED", "RESCHEDULED", "COMPLETED"
     symptoms: Optional[str] = None
+    clinical_notes: Optional[str] = None
+    prescriptions: Optional[str] = None
+    
+    # Pre-visit AI Summary fields
+    ai_urgency_level: Optional[str] = None
+    ai_chief_complaint: Optional[str] = None
+    ai_suggested_questions: Optional[str] = None
+    ai_pre_visit_status: str
+    
+    # Post-visit AI Summary fields
+    ai_patient_summary: Optional[str] = None
+    ai_follow_up_instructions: Optional[str] = None
+    ai_post_visit_status: str
+    
+    # AI Tracking
+    ai_model_info: Optional[str] = None
     
     # Extra helper fields for frontend convenience
     doctor_name: Optional[str] = None
@@ -67,6 +83,11 @@ class AppointmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AppointmentComplete(BaseModel):
+    clinical_notes: str
+    prescriptions: str
 
 
 # --- Leave Conflict Schemas ---

@@ -47,6 +47,16 @@ interface Appointment {
   doctor_name: string | null;
   specialization: string | null;
   patient_name: string | null;
+  clinical_notes?: string | null;
+  prescriptions?: string | null;
+  ai_urgency_level?: string | null;
+  ai_chief_complaint?: string | null;
+  ai_suggested_questions?: string | null;
+  ai_pre_visit_status?: string;
+  ai_patient_summary?: string | null;
+  ai_follow_up_instructions?: string | null;
+  ai_post_visit_status?: string;
+  ai_model_info?: string | null;
 }
 
 interface SlotHold {
@@ -1010,25 +1020,84 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              {/* AI summary placeholder (For Phase 6) */}
-              <div className="p-4 border border-teal-50 bg-teal-50/10 rounded-xl text-xs text-teal-950 space-y-1">
-                <div className="font-bold flex items-center gap-1">
-                  <span>🤖</span> AI Pre-Visit Insight
+              {/* AI Pre-Visit Insight */}
+              <div className="p-4 border border-teal-50 bg-teal-50/10 rounded-xl text-xs text-teal-955 space-y-2">
+                <div className="flex justify-between items-center font-bold">
+                  <span className="flex items-center gap-1">🤖 AI Pre-Visit Insight</span>
+                  {selectedAppointment.ai_pre_visit_status === "SUCCESS" || selectedAppointment.ai_pre_visit_status === "FAILED" ? (
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold tracking-wider ${
+                      selectedAppointment.ai_urgency_level === "HIGH" ? "bg-rose-100 text-rose-800" :
+                      selectedAppointment.ai_urgency_level === "MEDIUM" ? "bg-amber-100 text-amber-800" :
+                      "bg-emerald-100 text-emerald-800"
+                    }`}>
+                      {selectedAppointment.ai_urgency_level} URGENCY
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-bold animate-pulse">COMPILING...</span>
+                  )}
                 </div>
-                <p className="text-slate-500 leading-relaxed">
-                  AI diagnostic summary reports and pre-visit medical breakdowns are compiled once the symptoms are verified. This feature will be integrated in the upcoming Phase 6.
-                </p>
+
+                {selectedAppointment.ai_pre_visit_status === "SUCCESS" || selectedAppointment.ai_pre_visit_status === "FAILED" ? (
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-bold text-slate-500">Chief Complaint Summary:</span>
+                      <p className="text-slate-800 font-medium mt-0.5">"{selectedAppointment.ai_chief_complaint}"</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-slate-500 leading-relaxed">
+                    AI symptom logs and urgency categorization is compiling in the background...
+                  </p>
+                )}
               </div>
 
-              {/* Prescriptions placeholder (For Phase 6) */}
-              <div className="p-4 border border-slate-150 bg-slate-50/40 rounded-xl text-xs text-slate-700 space-y-1">
-                <div className="font-bold flex items-center gap-1">
-                  <span>💊</span> Clinic Prescription & Recommendations
-                </div>
-                <p className="text-slate-550 leading-relaxed">
-                  Prescription logs, medication dosages, and doctor follow-up schedules are posted here by your practitioner during or after your physical consultation.
-                </p>
-              </div>
+              {/* Doctor Clinical Notes & AI Post-Visit Summary */}
+              {selectedAppointment.status === "COMPLETED" && (
+                <>
+                  <div className="text-sm border-t border-slate-50 pt-4">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Doctor's Clinical Notes</div>
+                    <div className="p-3 bg-slate-50/60 rounded-xl text-slate-700 whitespace-pre-wrap">{selectedAppointment.clinical_notes}</div>
+                  </div>
+
+                  <div className="text-sm">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Prescribed Medications</div>
+                    <div className="p-3 bg-slate-50/60 rounded-xl text-teal-850 font-semibold whitespace-pre-wrap">{selectedAppointment.prescriptions}</div>
+                  </div>
+
+                  <div className="p-4 border border-indigo-50 bg-indigo-50/10 rounded-xl text-xs text-indigo-950 space-y-2">
+                    <div className="font-bold flex items-center gap-1 text-indigo-900">
+                      <span>🤖</span> AI Patient-Friendly Translation
+                    </div>
+                    {selectedAppointment.ai_post_visit_status === "SUCCESS" || selectedAppointment.ai_post_visit_status === "FAILED" ? (
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-bold text-slate-500">Simple Explanation:</span>
+                          <p className="text-slate-700 leading-relaxed mt-0.5">{selectedAppointment.ai_patient_summary}</p>
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-500">Care Instructions:</span>
+                          <ul className="list-disc list-inside mt-1 text-slate-700 space-y-1">
+                            {selectedAppointment.ai_follow_up_instructions &&
+                              (() => {
+                                try {
+                                  const insts = JSON.parse(selectedAppointment.ai_follow_up_instructions);
+                                  return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx}>{i}</li>) : <li>{insts}</li>;
+                                } catch {
+                                  return <li>{selectedAppointment.ai_follow_up_instructions}</li>;
+                                }
+                              })()
+                            }
+                          </ul>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 leading-relaxed">
+                        AI patient-friendly translation is compiling in the background...
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
 
             </div>
           </div>

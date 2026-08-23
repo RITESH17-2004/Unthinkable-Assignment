@@ -1,12 +1,14 @@
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+import json
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 
 from app.api import deps
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.models.user import User
 from app.models.doctor import DoctorProfile, WorkingHour, DoctorLeave
 from app.models.appointment import Appointment, SlotHold
@@ -18,9 +20,53 @@ from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentReschedule,
     AppointmentResponse,
+    AppointmentComplete,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def process_pre_visit_ai_summary(appointment_id: int, symptoms: str):
+    db = SessionLocal()
+    try:
+        from app.services.llm import generate_pre_visit_summary
+        ai_data = generate_pre_visit_summary(symptoms)
+        
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+        if appointment:
+            appointment.ai_urgency_level = ai_data["urgency"]
+            appointment.ai_chief_complaint = ai_data["chief_complaint"]
+            appointment.ai_suggested_questions = json.dumps(ai_data["suggested_questions"])
+            appointment.ai_pre_visit_status = ai_data["status"]
+            appointment.ai_model_info = ai_data["model"]
+            db.commit()
+    except Exception as e:
+        logger.error(f"Failed to process pre-visit AI summary: {e}")
+    finally:
+        db.close()
+
+
+def process_post_visit_ai_summary(appointment_id: int, clinical_notes: str, prescriptions: str):
+    db = SessionLocal()
+    try:
+        from app.services.llm import generate_post_visit_summary
+        ai_data = generate_post_visit_summary(clinical_notes, prescriptions)
+        
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+        if appointment:
+            appointment.ai_patient_summary = ai_data["patient_summary"]
+            appointment.ai_follow_up_instructions = json.dumps(ai_data["follow_up_instructions"])
+            appointment.ai_post_visit_status = ai_data["status"]
+            
+            # Update model tracking only if success or model not set
+            if ai_data["status"] == "SUCCESS" or not appointment.ai_model_info:
+                appointment.ai_model_info = ai_data["model"]
+            db.commit()
+    except Exception as e:
+        logger.error(f"Failed to process post-visit AI summary: {e}")
+    finally:
+        db.close()
 
 
 # --- Helper Function: Slot Generator ---
@@ -195,6 +241,7 @@ def confirm_appointment_booking(
     *,
     db: Session = Depends(get_db),
     book_in: AppointmentCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(deps.RoleChecker(["PATIENT"]))
 ) -> Any:
     """
@@ -245,6 +292,13 @@ def confirm_appointment_booking(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="This slot was already booked. Please choose another slot."
         )
+
+    # Trigger pre-visit AI summary generation in background
+    background_tasks.add_task(
+        process_pre_visit_ai_summary,
+        db_appointment.id,
+        db_appointment.symptoms or ""
+    )
 
     # Retrieve extra details to populate response model helpers
     doctor_user = db.query(User).join(DoctorProfile).filter(DoctorProfile.id == db_appointment.doctor_profile_id).first()
@@ -387,4 +441,52 @@ def reschedule_appointment(
     if pat:
         res.patient_name = pat.name
 
+    return res
+
+
+@router.put("/{id}/complete", response_model=AppointmentResponse)
+def complete_appointment(
+    id: int,
+    complete_in: AppointmentComplete,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.RoleChecker(["DOCTOR"]))
+) -> Any:
+    """
+    Complete an appointment by submitting clinical notes and prescriptions.
+    Restricted to Doctors. Automatically triggers post-visit AI summary generation.
+    """
+    app = db.query(Appointment).filter(Appointment.id == id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    doc_profile = db.query(DoctorProfile).filter(DoctorProfile.user_id == current_user.id).first()
+    if not doc_profile or app.doctor_profile_id != doc_profile.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to complete this appointment."
+        )
+
+    app.clinical_notes = complete_in.clinical_notes
+    app.prescriptions = complete_in.prescriptions
+    app.status = "COMPLETED"
+
+    db.commit()
+    db.refresh(app)
+
+    background_tasks.add_task(
+        process_post_visit_ai_summary,
+        app.id,
+        app.clinical_notes,
+        app.prescriptions
+    )
+
+    res = AppointmentResponse.model_validate(app)
+    res.doctor_name = current_user.name
+    res.specialization = doc_profile.specialization
+    
+    patient = db.query(User).filter(User.id == app.patient_id).first()
+    if patient:
+        res.patient_name = patient.name
+        
     return res

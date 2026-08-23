@@ -13,8 +13,25 @@ class Appointment(Base):
     appointment_date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    status = Column(String, default="BOOKED", nullable=False)  # "BOOKED", "CANCELLED", "RESCHEDULED"
+    status = Column(String, default="BOOKED", nullable=False)  # "BOOKED", "CANCELLED", "RESCHEDULED", "COMPLETED"
     symptoms = Column(String, nullable=True)
+    clinical_notes = Column(String, nullable=True)
+    prescriptions = Column(String, nullable=True)
+    
+    # Pre-visit AI Summary fields
+    ai_urgency_level = Column(String, nullable=True)
+    ai_chief_complaint = Column(String, nullable=True)
+    ai_suggested_questions = Column(String, nullable=True)  # JSON serialized
+    ai_pre_visit_status = Column(String, default="PENDING", nullable=False)
+    
+    # Post-visit AI Summary fields
+    ai_patient_summary = Column(String, nullable=True)
+    ai_follow_up_instructions = Column(String, nullable=True)
+    ai_post_visit_status = Column(String, default="PENDING", nullable=False)
+    
+    # AI Tracking
+    ai_model_info = Column(String, nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

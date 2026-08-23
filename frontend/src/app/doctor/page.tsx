@@ -44,6 +44,16 @@ interface Appointment {
   status: string;
   symptoms: string | null;
   patient_name: string | null;
+  clinical_notes?: string | null;
+  prescriptions?: string | null;
+  ai_urgency_level?: string | null;
+  ai_chief_complaint?: string | null;
+  ai_suggested_questions?: string | null;
+  ai_pre_visit_status?: string;
+  ai_patient_summary?: string | null;
+  ai_follow_up_instructions?: string | null;
+  ai_post_visit_status?: string;
+  ai_model_info?: string | null;
 }
 
 export default function DoctorDashboard() {
@@ -64,6 +74,13 @@ export default function DoctorDashboard() {
   const [leaves, setLeaves] = useState<DoctorLeave[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  // Complete Visit Modal States
+  const [selectedVisit, setSelectedVisit] = useState<Appointment | null>(null);
+  const [viewingVisitSummary, setViewingVisitSummary] = useState<Appointment | null>(null);
+  const [clinicalNotes, setClinicalNotes] = useState("");
+  const [visitPrescriptions, setVisitPrescriptions] = useState("");
+  const [completeLoading, setCompleteLoading] = useState(false);
 
   const fetchDoctorProfileAndSchedule = async (token: string | null) => {
     if (!token) return;
@@ -198,6 +215,43 @@ export default function DoctorDashboard() {
       console.error(e);
     }
   };
+  const handleCompleteVisit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVisit) return;
+    setCompleteLoading(true);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/appointments/${selectedVisit.id}/complete`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clinical_notes: clinicalNotes,
+          prescriptions: visitPrescriptions,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Visit report submitted successfully! AI summaries are being generated.");
+        setSelectedVisit(null);
+        setClinicalNotes("");
+        setVisitPrescriptions("");
+        fetchDoctorProfileAndSchedule(token);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Failed to complete visit.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to connect to the server.");
+    } finally {
+      setCompleteLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -326,19 +380,40 @@ export default function DoctorDashboard() {
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                             app.status === "BOOKED" ? "text-emerald-700 bg-emerald-50" :
                             app.status === "RESCHEDULED" ? "text-indigo-700 bg-indigo-50" :
+                            app.status === "COMPLETED" ? "text-teal-700 bg-teal-50" :
                             "text-slate-500 bg-slate-100"
                           }`}>
                             {app.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          {app.status !== "CANCELLED" && (
+                        <td className="px-6 py-4 text-right space-x-3">
+                          {app.status === "COMPLETED" && (
                             <button
-                              onClick={() => handleCancelAppointment(app.id)}
-                              className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                              onClick={() => setViewingVisitSummary(app)}
+                              className="text-xs font-bold text-teal-600 hover:text-teal-700"
                             >
-                              Cancel Visit
+                              View Summary
                             </button>
+                          )}
+                          {app.status !== "CANCELLED" && app.status !== "COMPLETED" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedVisit(app);
+                                  setClinicalNotes(app.clinical_notes || "");
+                                  setVisitPrescriptions(app.prescriptions || "");
+                                }}
+                                className="text-xs font-bold text-teal-650 hover:text-teal-700"
+                              >
+                                Complete Visit
+                              </button>
+                              <button
+                                onClick={() => handleCancelAppointment(app.id)}
+                                className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                              >
+                                Cancel
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -477,6 +552,199 @@ export default function DoctorDashboard() {
         )}
 
       </main>
+
+      {/* MODAL 1: COMPLETE VISIT FORM */}
+      {selectedVisit && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full p-6 relative">
+            <button
+              onClick={() => setSelectedVisit(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+              </svg>
+            </button>
+
+            <h3 className="text-xl font-bold text-slate-950 mb-1">Complete Visit Report</h3>
+            <p className="text-xs text-slate-400 mb-6">Patient: {selectedVisit.patient_name} | {new Date(selectedVisit.appointment_date).toLocaleDateString()} at {selectedVisit.start_time.substring(0, 5)}</p>
+
+            {/* PRE-VISIT AI SUMMARY DRAWER */}
+            <div className="mb-6 p-4 bg-teal-50/20 border border-teal-100 rounded-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black text-teal-955 flex items-center gap-1">
+                  <span>🤖</span> AI Symptoms Analysis
+                </span>
+                {selectedVisit.ai_pre_visit_status === "SUCCESS" || selectedVisit.ai_pre_visit_status === "FAILED" ? (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold tracking-wider ${
+                    selectedVisit.ai_urgency_level === "HIGH" ? "bg-rose-100 text-rose-800" :
+                    selectedVisit.ai_urgency_level === "MEDIUM" ? "bg-amber-100 text-amber-800" :
+                    "bg-emerald-100 text-emerald-800"
+                  }`}>
+                    {selectedVisit.ai_urgency_level} URGENCY
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-bold animate-pulse">COMPILING...</span>
+                )}
+              </div>
+
+              {selectedVisit.ai_pre_visit_status === "SUCCESS" || selectedVisit.ai_pre_visit_status === "FAILED" ? (
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-500">Chief Complaint:</span>
+                    <p className="text-slate-800 font-medium mt-0.5">"{selectedVisit.ai_chief_complaint}"</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-500">Suggested Diagnostic Questions:</span>
+                    <ul className="list-disc list-inside mt-1 text-slate-705 space-y-1">
+                      {selectedVisit.ai_suggested_questions &&
+                        (() => {
+                          try {
+                            const qs = JSON.parse(selectedVisit.ai_suggested_questions);
+                            return Array.isArray(qs) ? qs.map((q, idx) => <li key={idx}>{q}</li>) : <li>{qs}</li>;
+                          } catch {
+                            return <li>{selectedVisit.ai_suggested_questions}</li>;
+                          }
+                        })()
+                      }
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-450 italic">
+                  AI symptom summarizer is running in the background. Refresh in a few seconds.
+                </div>
+              )}
+            </div>
+
+            {/* Visit Details input form */}
+            <form onSubmit={handleCompleteVisit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Clinical Assessment Notes</label>
+                <textarea
+                  required
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  placeholder="Record your clinical observation, diagnosis notes, and patient diagnosis details..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Prescriptions & Medications</label>
+                <textarea
+                  required
+                  value={visitPrescriptions}
+                  onChange={(e) => setVisitPrescriptions(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  placeholder="List medications, dosage details, schedules, or recommendations (e.g. Paracetamol 500mg, 1-0-1)..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedVisit(null)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={completeLoading}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-teal-600/10 flex items-center justify-center min-w-36"
+                >
+                  {completeLoading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : "Submit Report"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: VIEW VISIT SUMMARY RECEIPT */}
+      {viewingVisitSummary && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full p-6 relative">
+            <button
+              onClick={() => setViewingVisitSummary(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+              </svg>
+            </button>
+
+            <h3 className="text-xl font-bold text-slate-950 mb-1">Consultation Summary</h3>
+            <p className="text-xs text-slate-400 mb-6">Patient: {viewingVisitSummary.patient_name} | Date: {new Date(viewingVisitSummary.appointment_date).toLocaleDateString()}</p>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="text-xs">
+                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Symptom Log</span>
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-700">{viewingVisitSummary.symptoms}</div>
+              </div>
+
+              <div className="text-xs">
+                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Clinical Notes</span>
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-700 whitespace-pre-wrap">{viewingVisitSummary.clinical_notes}</div>
+              </div>
+
+              <div className="text-xs">
+                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Prescriptions</span>
+                <div className="p-3 bg-slate-50 rounded-xl text-teal-850 font-medium whitespace-pre-wrap">{viewingVisitSummary.prescriptions}</div>
+              </div>
+
+              {/* POST-VISIT AI PATIENT FRIENDLY SUMMARY */}
+              <div className="p-4 bg-teal-50/20 border border-teal-100 rounded-xl space-y-3">
+                <div className="text-xs font-black text-teal-955 flex items-center gap-1">
+                  <span>🤖</span> AI Patient-Friendly Translation
+                </div>
+                {viewingVisitSummary.ai_post_visit_status === "SUCCESS" || viewingVisitSummary.ai_post_visit_status === "FAILED" ? (
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-500">Friendly Summary:</span>
+                      <p className="text-slate-800 leading-relaxed mt-1 font-medium">{viewingVisitSummary.ai_patient_summary}</p>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-500">Care Instructions:</span>
+                      <ul className="list-disc list-inside mt-1 text-slate-707 space-y-1">
+                        {viewingVisitSummary.ai_follow_up_instructions &&
+                          (() => {
+                            try {
+                              const insts = JSON.parse(viewingVisitSummary.ai_follow_up_instructions);
+                              return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx}>{i}</li>) : <li>{insts}</li>;
+                            } catch {
+                              return <li>{viewingVisitSummary.ai_follow_up_instructions}</li>;
+                            }
+                          })()
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-450 italic">
+                    AI Patient Translation is compiling in the background.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-50 mt-4">
+              <button
+                onClick={() => setViewingVisitSummary(null)}
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl"
+              >
+                Close Summary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
