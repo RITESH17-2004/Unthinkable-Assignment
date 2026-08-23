@@ -34,10 +34,22 @@ interface DoctorLeave {
   reason: string | null;
 }
 
+interface Appointment {
+  id: number;
+  patient_id: number;
+  doctor_profile_id: number;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  symptoms: string | null;
+  patient_name: string | null;
+}
+
 export default function DoctorDashboard() {
   const [user, setUser] = useState<DoctorUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"profile" | "schedule">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "schedule" | "agenda">("agenda");
   const router = useRouter();
 
   // Profile Edit States
@@ -50,9 +62,11 @@ export default function DoctorDashboard() {
   // Doctor Schedule & Leave list
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [leaves, setLeaves] = useState<DoctorLeave[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
 
-  const fetchDoctorProfileAndSchedule = async (token: string) => {
+  const fetchDoctorProfileAndSchedule = async (token: string | null) => {
+    if (!token) return;
     try {
       // 1. Fetch profile info
       const res = await fetch("http://localhost:8000/api/v1/doctor/profile/me", {
@@ -76,9 +90,6 @@ export default function DoctorDashboard() {
       // 2. Fetch Working Hours & leaves
       setScheduleLoading(true);
       
-      // We can fetch working hours and leaves via the Admin-equivalent or create custom Doctor endpoints
-      // But since we want to restrict doctors to their own information, we fetch it from their profile
-      // Or we query schedule for the current logged-in doctor
       const scheduleRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${userData.id}/schedule`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -93,6 +104,15 @@ export default function DoctorDashboard() {
       if (leavesRes.ok) {
         const leavesData = await leavesRes.json();
         setLeaves(leavesData);
+      }
+
+      // 3. Fetch Appointments (Agenda)
+      const appRes = await fetch("http://localhost:8000/api/v1/appointments/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (appRes.ok) {
+        const appData = await appRes.json();
+        setAppointments(appData);
       }
     } catch (e: any) {
       console.error(e);
@@ -160,6 +180,25 @@ export default function DoctorDashboard() {
     }
   };
 
+  const handleCancelAppointment = async (appId: number) => {
+    if (!confirm("Are you sure you want to cancel this patient appointment?")) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/appointments/${appId}/cancel`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        alert("Appointment cancelled successfully!");
+        fetchDoctorProfileAndSchedule(token);
+      } else {
+        alert("Failed to cancel appointment.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
@@ -220,6 +259,14 @@ export default function DoctorDashboard() {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setActiveTab("agenda")}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
+                activeTab === "agenda" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              My Agenda
+            </button>
+            <button
               onClick={() => setActiveTab("profile")}
               className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
                 activeTab === "profile" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -238,7 +285,72 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        {/* TAB A: MY PROFILE */}
+        {/* TAB A: MY AGENDA */}
+        {activeTab === "agenda" && (
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="text-lg font-bold text-slate-950">Patient Visit Schedule</h2>
+            </div>
+
+            {appointments.length === 0 ? (
+              <div className="text-center py-16 text-slate-400 italic">
+                No patient bookings scheduled.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100 text-left">
+                  <thead className="bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-4">Patient Name</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Time Slot</th>
+                      <th className="px-6 py-4">Symptoms description</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {appointments.map((app) => (
+                      <tr key={app.id} className="hover:bg-slate-50/40">
+                        <td className="px-6 py-4 font-semibold text-slate-900">{app.patient_name}</td>
+                        <td className="px-6 py-4 text-slate-600">
+                          {new Date(app.appointment_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-slate-700">
+                          {app.start_time.substring(0, 5)} - {app.end_time.substring(0, 5)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 max-w-xs truncate">
+                          {app.symptoms || <span className="text-slate-350 italic">None logged</span>}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                            app.status === "BOOKED" ? "text-emerald-700 bg-emerald-50" :
+                            app.status === "RESCHEDULED" ? "text-indigo-700 bg-indigo-50" :
+                            "text-slate-500 bg-slate-100"
+                          }`}>
+                            {app.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {app.status !== "CANCELLED" && (
+                            <button
+                              onClick={() => handleCancelAppointment(app.id)}
+                              className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                            >
+                              Cancel Visit
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB B: MY PROFILE */}
         {activeTab === "profile" && (
           <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm">
             <h2 className="text-lg font-bold text-slate-950 mb-1">Clinical Information</h2>
@@ -306,7 +418,7 @@ export default function DoctorDashboard() {
           </div>
         )}
 
-        {/* TAB B: MY SCHEDULE */}
+        {/* TAB C: MY SCHEDULE */}
         {activeTab === "schedule" && (
           <div className="space-y-8">
             {scheduleLoading ? (

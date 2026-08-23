@@ -7,6 +7,8 @@ from app.core.security import get_password_hash
 from app.core.database import get_db
 from app.models.user import User
 from app.models.doctor import DoctorProfile, WorkingHour, DoctorLeave
+from app.models.appointment import Appointment
+from app.schemas.appointment import LeaveConflictResponse, AppointmentConflictInfo
 from app.schemas.doctor import (
     DoctorUserCreate,
     DoctorUserUpdate,
@@ -213,7 +215,7 @@ def get_doctor_leaves_admin(
     return profile.leaves
 
 
-@router.post("/{doctor_id}/leaves", response_model=DoctorLeaveResponse)
+@router.post("/{doctor_id}/leaves", response_model=LeaveConflictResponse)
 def add_doctor_leave(
     *,
     db: Session = Depends(get_db),
@@ -223,7 +225,7 @@ def add_doctor_leave(
 ) -> Any:
     """
     Add a leave day for a doctor.
-    Validates leave conflicts by checking if there are existing appointments on this date.
+    Automatically detects active appointments on this date, cancels them, and logs them in response.
     Restricted to Admins.
     """
     profile = db.query(DoctorProfile).filter(DoctorProfile.user_id == doctor_id).first()
@@ -238,15 +240,34 @@ def add_doctor_leave(
     if existing_leave:
         raise HTTPException(status_code=400, detail="Leave is already registered for this date.")
 
-    # Validate conflicts: Count potential appointments booked on this day
-    # Since appointments table is NOT created yet (Phase 6), we prepare a checker query
-    # Once the appointment model is added, we'll check if appointments are booked.
-    conflicts_count = 0
-    # E.g., conflicts_count = db.query(Appointment).filter(
-    #     Appointment.doctor_profile_id == profile.id,
-    #     func.date(Appointment.scheduled_at) == leave_in.leave_date,
-    #     Appointment.status != "CANCELLED"
-    # ).count()
+    # Find conflicting active appointments
+    conflicting_apps = db.query(Appointment).filter(
+        Appointment.doctor_profile_id == profile.id,
+        Appointment.appointment_date == leave_in.leave_date,
+        Appointment.status != "CANCELLED"
+    ).all()
+
+    conflicting_list = []
+    for app in conflicting_apps:
+        # Mark as cancelled due to doctor leave
+        app.status = "CANCELLED"
+        
+        # Get patient details
+        patient = db.query(User).filter(User.id == app.patient_id).first()
+        patient_name = patient.name if patient else "Unknown"
+        patient_email = patient.email if patient else "Unknown"
+
+        conflicting_list.append(
+            AppointmentConflictInfo(
+                id=app.id,
+                patient_name=patient_name,
+                patient_email=patient_email,
+                appointment_date=app.appointment_date,
+                start_time=app.start_time,
+                end_time=app.end_time,
+                status=app.status
+            )
+        )
 
     db_leave = DoctorLeave(
         doctor_profile_id=profile.id,
@@ -257,9 +278,12 @@ def add_doctor_leave(
     db.commit()
     db.refresh(db_leave)
 
-    # Return leave details with a warning header or metadata about conflicts if any
-    # Note: We will handle notification warnings for conflicts in the frontend
-    return db_leave
+    return LeaveConflictResponse(
+        leave_id=db_leave.id,
+        leave_date=db_leave.leave_date,
+        reason=db_leave.reason,
+        conflicting_appointments=conflicting_list
+    )
 
 
 @router.delete("/{doctor_id}/leaves/{leave_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

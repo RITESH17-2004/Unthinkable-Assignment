@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [newLeaveDate, setNewLeaveDate] = useState("");
   const [newLeaveReason, setNewLeaveReason] = useState("");
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [conflictList, setConflictList] = useState<any[]>([]);
 
   const fetchDoctors = async (token: string) => {
     try {
@@ -284,6 +285,13 @@ export default function AdminDashboard() {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || "Failed to register leave day");
+      }
+
+      const responseData = await res.json();
+      if (responseData.conflicting_appointments && responseData.conflicting_appointments.length > 0) {
+        setConflictList(responseData.conflicting_appointments);
+      } else {
+        alert("Leave day registered successfully. No scheduling conflicts detected.");
       }
 
       setNewLeaveDate("");
@@ -865,6 +873,48 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LEAVE CONFLICTS ALERT */}
+      {conflictList.length > 0 && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setConflictList([])}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+              </svg>
+            </button>
+
+            <h3 className="text-xl font-bold text-slate-950 mb-1">Leave Conflicts Resolved</h3>
+            <p className="text-xs text-slate-500 mb-6">The following active patient appointments were automatically cancelled due to doctor leave:</p>
+
+            <div className="space-y-3 max-h-60 overflow-y-auto mb-6">
+              {conflictList.map((app) => (
+                <div key={app.id} className="p-3 bg-rose-50/30 border border-rose-100/50 rounded-xl text-xs space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900">{app.patient_name}</span>
+                    <span className="text-slate-400 font-semibold">{app.patient_email}</span>
+                  </div>
+                  <div className="text-slate-600">
+                    Slot: {new Date(app.appointment_date).toLocaleDateString()} at {app.start_time.substring(0, 5)} - {app.end_time.substring(0, 5)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setConflictList([])}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-teal-600/10"
+              >
+                Acknowledge
+              </button>
+            </div>
           </div>
         </div>
       )}
