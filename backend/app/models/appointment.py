@@ -22,12 +22,12 @@ class Appointment(Base):
     ai_urgency_level = Column(String, nullable=True)
     ai_chief_complaint = Column(String, nullable=True)
     ai_suggested_questions = Column(String, nullable=True)  # JSON serialized
-    ai_pre_visit_status = Column(String, default="PENDING", nullable=False)
+    ai_pre_visit_status = Column(String, default="PENDING", nullable=True)
     
     # Post-visit AI Summary fields
     ai_patient_summary = Column(String, nullable=True)
     ai_follow_up_instructions = Column(String, nullable=True)
-    ai_post_visit_status = Column(String, default="PENDING", nullable=False)
+    ai_post_visit_status = Column(String, default="PENDING", nullable=True)
     
     # AI Tracking
     ai_model_info = Column(String, nullable=True)
