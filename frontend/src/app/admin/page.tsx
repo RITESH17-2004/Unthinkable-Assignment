@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface DoctorProfile {
   id: number;
   user_id: number;
@@ -92,7 +94,7 @@ export default function AdminDashboard() {
 
   const fetchDoctors = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/admin/doctors", {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -143,7 +145,7 @@ export default function AdminDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch("http://localhost:8000/api/v1/admin/doctors", {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -188,7 +190,7 @@ export default function AdminDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/doctors/${editingDoctor.id}`, {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors/${editingDoctor.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -224,7 +226,7 @@ export default function AdminDashboard() {
 
     try {
       // 1. Fetch Working Hours
-      const hoursRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${doctor.id}/schedule`, {
+      const hoursRes = await fetch(`${API_BASE}/api/v1/admin/doctors/${doctor.id}/schedule`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (hoursRes.ok) {
@@ -240,7 +242,7 @@ export default function AdminDashboard() {
       }
 
       // 2. Fetch Leaves
-      const leavesRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${doctor.id}/leaves`, {
+      const leavesRes = await fetch(`${API_BASE}/api/v1/admin/doctors/${doctor.id}/leaves`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (leavesRes.ok) {
@@ -264,7 +266,7 @@ export default function AdminDashboard() {
     const filteredHours = workingHours.filter((h) => h.is_available);
 
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/doctors/${selectedDoctor.id}/schedule`, {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors/${selectedDoctor.id}/schedule`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -292,7 +294,7 @@ export default function AdminDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/doctors/${selectedDoctor.id}/leaves`, {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors/${selectedDoctor.id}/leaves`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -331,7 +333,7 @@ export default function AdminDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/doctors/${selectedDoctor.id}/leaves/${leaveId}`, {
+      const res = await fetch(`${API_BASE}/api/v1/admin/doctors/${selectedDoctor.id}/leaves/${leaveId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

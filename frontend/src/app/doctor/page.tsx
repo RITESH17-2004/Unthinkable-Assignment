@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface DoctorProfile {
   id: number;
   user_id: number;
@@ -112,7 +114,7 @@ export default function DoctorDashboard() {
 
   const fetchGoogleStatus = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/google-calendar/status", {
+      const res = await fetch(`${API_BASE}/api/v1/google-calendar/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -132,7 +134,7 @@ export default function DoctorDashboard() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await fetch("http://localhost:8000/api/v1/google-calendar/auth-url", {
+      const res = await fetch(`${API_BASE}/api/v1/google-calendar/auth-url`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -154,7 +156,7 @@ export default function DoctorDashboard() {
     if (!token) return;
     if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
     try {
-      const res = await fetch("http://localhost:8000/api/v1/google-calendar/disconnect", {
+      const res = await fetch(`${API_BASE}/api/v1/google-calendar/disconnect`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -175,7 +177,7 @@ export default function DoctorDashboard() {
     if (!token) return;
     try {
       // 1. Fetch profile info
-      const res = await fetch("http://localhost:8000/api/v1/doctor/profile/me", {
+      const res = await fetch(`${API_BASE}/api/v1/doctor/profile/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -196,7 +198,7 @@ export default function DoctorDashboard() {
       // 2. Fetch Working Hours & leaves
       setScheduleLoading(true);
       
-      const scheduleRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${userData.id}/schedule`, {
+      const scheduleRes = await fetch(`${API_BASE}/api/v1/admin/doctors/${userData.id}/schedule`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (scheduleRes.ok) {
@@ -204,7 +206,7 @@ export default function DoctorDashboard() {
         setWorkingHours(scheduleData);
       }
 
-      const leavesRes = await fetch(`http://localhost:8000/api/v1/admin/doctors/${userData.id}/leaves`, {
+      const leavesRes = await fetch(`${API_BASE}/api/v1/admin/doctors/${userData.id}/leaves`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (leavesRes.ok) {
@@ -213,7 +215,7 @@ export default function DoctorDashboard() {
       }
 
       // 3. Fetch Appointments (Agenda)
-      const appRes = await fetch("http://localhost:8000/api/v1/appointments/me", {
+      const appRes = await fetch(`${API_BASE}/api/v1/appointments/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (appRes.ok) {
@@ -268,7 +270,7 @@ export default function DoctorDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch("http://localhost:8000/api/v1/doctor/profile/me/profile", {
+      const res = await fetch(`${API_BASE}/api/v1/doctor/profile/me/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -296,7 +298,7 @@ export default function DoctorDashboard() {
     if (!confirm("Are you sure you want to cancel this patient appointment?")) return;
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/appointments/${appId}/cancel`, {
+      const res = await fetch(`${API_BASE}/api/v1/appointments/${appId}/cancel`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -341,7 +343,7 @@ export default function DoctorDashboard() {
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/appointments/${selectedVisit.id}/complete`, {
+      const res = await fetch(`${API_BASE}/api/v1/appointments/${selectedVisit.id}/complete`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

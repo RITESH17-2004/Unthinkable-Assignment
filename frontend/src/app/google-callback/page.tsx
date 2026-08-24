@@ -3,6 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,7 +33,7 @@ function GoogleCallbackContent() {
 
     const connectGoogleCalendar = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/google-calendar/connect", {
+        const res = await fetch(`${API_BASE}/api/v1/google-calendar/connect`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
