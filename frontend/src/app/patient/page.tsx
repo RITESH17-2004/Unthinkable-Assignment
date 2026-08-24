@@ -317,7 +317,7 @@ export default function PatientDashboard() {
     
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/appointments/hold", {
+      const res = await fetch(`${API_BASE}/api/v1/appointments/hold`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
