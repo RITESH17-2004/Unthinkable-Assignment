@@ -105,7 +105,7 @@ def send_booking_confirmation(self, appointment_id: int):
             return
 
         # Send to Patient
-        patient_subject = "Appointment Confirmed - CareSync"
+        patient_subject = "Appointment Confirmed - MediFlow"
         patient_body = (
             f"Dear {patient.name},\n\n"
             f"Your appointment with Dr. {doctor_user.name} ({doctor_user.doctor_profile.specialization}) has been confirmed.\n\n"
@@ -113,12 +113,12 @@ def send_booking_confirmation(self, appointment_id: int):
             f"  Date: {app.appointment_date}\n"
             f"  Time: {app.start_time.strftime('%H:%M')} - {app.end_time.strftime('%H:%M')}\n"
             f"  Symptoms logged: {app.symptoms or 'None'}\n\n"
-            f"Thank you for choosing CareSync!"
+            f"Thank you for choosing MediFlow!"
         )
         send_email_message(patient.email, patient_subject, patient_body, "BOOKING_CONFIRMATION", app.id)
 
         # Send to Doctor
-        doctor_subject = "New Patient Appointment Booked - CareSync"
+        doctor_subject = "New Patient Appointment Booked - MediFlow"
         doctor_body = (
             f"Dear Dr. {doctor_user.name},\n\n"
             f"A new appointment has been booked for you.\n\n"
@@ -143,16 +143,16 @@ def send_booking_confirmation(self, appointment_id: int):
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def send_cancellation_email(self, patient_email: str, doctor_email: str, patient_name: str, doctor_name: str, app_date_str: str, app_time_str: str):
     try:
-        pat_subject = "Appointment Cancelled - CareSync"
+        pat_subject = "Appointment Cancelled - MediFlow"
         pat_body = (
             f"Dear {patient_name},\n\n"
             f"We wanted to inform you that your appointment with Dr. {doctor_name} on {app_date_str} at {app_time_str} has been cancelled.\n\n"
             f"If you have any questions or would like to reschedule, please visit your portal.\n\n"
-            f"Best regards,\nCareSync Clinical Support"
+            f"Best regards,\nMediFlow Clinical Support"
         )
         send_email_message(patient_email, pat_subject, pat_body, "CANCELLATION")
 
-        doc_subject = "Patient Appointment Cancelled - CareSync"
+        doc_subject = "Patient Appointment Cancelled - MediFlow"
         doc_body = (
             f"Dear Dr. {doctor_name},\n\n"
             f"Please note that your appointment with patient {patient_name} scheduled on {app_date_str} at {app_time_str} has been cancelled.\n\n"
@@ -170,13 +170,13 @@ def send_cancellation_email(self, patient_email: str, doctor_email: str, patient
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def send_leave_notifications(self, patient_email: str, patient_name: str, doctor_name: str, app_date_str: str, app_time_str: str):
     try:
-        subject = "Urgent: Doctor Leave Cancellation Notification - CareSync"
+        subject = "Urgent: Doctor Leave Cancellation Notification - MediFlow"
         body = (
             f"Dear {patient_name},\n\n"
             f"We regret to inform you that your upcoming appointment with Dr. {doctor_name} on {app_date_str} at {app_time_str} has been cancelled because the doctor will be out of office on leave.\n\n"
-            f"Please log in to your CareSync dashboard to search for another time slot or specialist at your earliest convenience.\n\n"
+            f"Please log in to your MediFlow dashboard to search for another time slot or specialist at your earliest convenience.\n\n"
             f"We apologize for the inconvenience.\n\n"
-            f"Warm regards,\nCareSync Support Team"
+            f"Warm regards,\nMediFlow Support Team"
         )
         send_email_message(patient_email, subject, body, "LEAVE_ALERT")
     except Exception as e:
@@ -190,7 +190,7 @@ def send_leave_notifications(self, patient_email: str, patient_name: str, doctor
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def send_medication_reminder(self, appointment_id: int, patient_email: str, patient_name: str, medicine_name: str, dosage: str, frequency: str):
     try:
-        subject = f"Medication Reminder: Take {medicine_name} - CareSync"
+        subject = f"Medication Reminder: Take {medicine_name} - MediFlow"
         body = (
             f"Hi {patient_name},\n\n"
             f"This is a friendly reminder to take your prescribed medication: {medicine_name}.\n\n"
@@ -198,7 +198,7 @@ def send_medication_reminder(self, appointment_id: int, patient_email: str, pati
             f"  Dosage: {dosage}\n"
             f"  Schedule/Frequency: {frequency}\n\n"
             f"Please take this medication as directed by your physician.\n\n"
-            f"Be well,\nCareSync Patient Support"
+            f"Be well,\nMediFlow Patient Support"
         )
         send_email_message(patient_email, subject, body, "MEDICATION_REMINDER", appointment_id)
     except Exception as e:

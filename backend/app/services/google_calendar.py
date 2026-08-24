@@ -114,9 +114,9 @@ def create_calendar_event(service, appointment, doctor_name: str, patient_name: 
     Inserts a calendar event to Google Calendar.
     """
     event = {
-        'summary': f'CareSync Appointment: Dr. {doctor_name} & {patient_name}',
+        'summary': f'MediFlow Appointment: Dr. {doctor_name} & {patient_name}',
         'description': (
-            f'Clinical Consultation scheduled on CareSync.\n'
+            f'Clinical Consultation scheduled on MediFlow.\n'
             f'Patient Chief Complaint / Symptoms: {appointment.symptoms or "Not provided"}\n'
             f'Urgency Level: {appointment.ai_urgency_level or "Normal"}\n'
         ),
@@ -138,7 +138,7 @@ def update_calendar_event(service, event_id: str, appointment, doctor_name: str,
     Updates/patches an existing calendar event.
     """
     event = {
-        'summary': f'CareSync Appointment: Dr. {doctor_name} & {patient_name} (RESCHEDULED)',
+        'summary': f'MediFlow Appointment: Dr. {doctor_name} & {patient_name} (RESCHEDULED)',
         'start': {
             'dateTime': f"{appointment.appointment_date}T{appointment.start_time}",
             'timeZone': 'UTC',

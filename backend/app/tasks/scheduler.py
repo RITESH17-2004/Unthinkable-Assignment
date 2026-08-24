@@ -70,7 +70,7 @@ def send_appointment_reminders():
                 doctor_user = db.query(User).join(DoctorProfile).filter(DoctorProfile.id == app.doctor_profile_id).first()
 
                 if patient and doctor_user:
-                    subject = "Reminder: Upcoming CareSync Appointment Tomorrow"
+                    subject = "Reminder: Upcoming MediFlow Appointment Tomorrow"
                     body = (
                         f"Hi {patient.name},\n\n"
                         f"This is a friendly reminder that you have an upcoming consultation scheduled with Dr. {doctor_user.name}.\n\n"
@@ -78,7 +78,7 @@ def send_appointment_reminders():
                         f"  Date: {app.appointment_date}\n"
                         f"  Time: {app.start_time.strftime('%H:%M')} - {app.end_time.strftime('%H:%M')}\n\n"
                         f"Please join or arrive 10 minutes before the scheduled slot.\n\n"
-                        f"Be well,\nCareSync Clinical Support"
+                        f"Be well,\nMediFlow Clinical Support"
                     )
                     send_email_message(patient.email, subject, body, "APPOINTMENT_REMINDER", app.id)
                     app.reminder_sent = True

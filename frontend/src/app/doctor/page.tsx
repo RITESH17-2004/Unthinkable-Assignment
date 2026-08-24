@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface DoctorProfile {
@@ -75,9 +75,21 @@ export default function DoctorDashboard() {
   // Profile Edit States
   const [bio, setBio] = useState("");
   const [slotDuration, setSlotDuration] = useState(30);
+  const [isSlotDurationOpen, setIsSlotDurationOpen] = useState(false);
+  const slotDurationRef = useRef<HTMLDivElement | null>(null);
   const [specialization, setSpecialization] = useState("");
   const [editSuccess, setEditSuccess] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (slotDurationRef.current && !slotDurationRef.current.contains(e.target as Node)) {
+        setIsSlotDurationOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Doctor Schedule & Leave list
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
@@ -368,38 +380,68 @@ export default function DoctorDashboard() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-400 font-medium">Loading your portal...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      {/* Navigation */}
-      <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-20">
+      {/* ── Navigation ── */}
+      <header className="glass-nav sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            <div className="flex items-center gap-6">
+              {/* Logo */}
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="MediFlow Logo" className="h-9 w-9 object-contain rounded-xl shadow-xs" />
+                <span className="font-bold text-slate-900 text-lg tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>
+                  Medi<span className="text-teal-600">Flow</span>
+                </span>
               </div>
-              <span className="font-bold text-lg text-slate-900 tracking-tight">CareSync</span>
+
+              {/* Desktop Nav Tabs */}
+              <nav className="hidden md:flex items-center gap-1">
+                {[
+                  { key: "agenda",   label: "Agenda" },
+                  { key: "profile",  label: "Profile" },
+                  { key: "schedule", label: "Schedule" },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as any)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                      activeTab === tab.key
+                        ? "bg-teal-50 text-teal-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-semibold text-slate-800">Dr. {user.name}</div>
-                <div className="text-xs text-slate-400 capitalize">{user.role.toLowerCase()}</div>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-full py-1 pl-1 pr-3 shadow-2xs">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800">Dr. {user.name}</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-teal-100/70 text-teal-800 border border-teal-200/60">
+                    {user.doctor_profile?.specialization || "Doctor"}
+                  </span>
+                </div>
               </div>
               
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all duration-200"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Sign Out
@@ -409,47 +451,64 @@ export default function DoctorDashboard() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 flex-grow w-full">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
         
-        {/* Profile Card Header */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Doctor Dashboard</h1>
-            <p className="text-slate-500 text-sm mt-1.5">Manage your personal profile specialization, bio details, and view your schedule.</p>
+        {/* Mobile Navigation */}
+        <div className="flex md:hidden bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm mb-6 gap-1">
+          {[
+            { key: "agenda",   label: "Agenda" },
+            { key: "profile",  label: "Profile" },
+            { key: "schedule", label: "Schedule" },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === tab.key ? "bg-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Profile Banner */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-teal-700 via-teal-800 to-slate-900 rounded-2xl p-6 md:p-7 shadow-lg text-white mb-6">
+          <div className="absolute right-0 top-0 h-full w-1/3 opacity-10">
+            <svg viewBox="0 0 200 200" fill="none" className="h-full w-full">
+              <circle cx="160" cy="40" r="120" stroke="white" strokeWidth="40" />
+            </svg>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("agenda")}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
-                activeTab === "agenda" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              My Agenda
-            </button>
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
-                activeTab === "profile" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              My Profile
-            </button>
-            <button
-              onClick={() => setActiveTab("schedule")}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
-                activeTab === "schedule" ? "bg-teal-600 text-white shadow-md" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              My Schedule
-            </button>
+          <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-teal-500/20 backdrop-blur-sm flex items-center justify-center text-teal-100 text-2xl font-black border border-teal-400/30 shadow-xs">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-teal-400/20 border border-teal-300/30 text-teal-200 text-[11px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                  Doctor Portal
+                </div>
+                <h1 className="text-xl md:text-2xl font-black tracking-tight mt-0.5" style={{ fontFamily: 'var(--font-outfit)' }}>
+                  Dr. {user.name}
+                </h1>
+                <p className="text-teal-100/80 text-sm mt-0.5">
+                  {user.doctor_profile?.specialization || "General Practice"} &middot; {user.email}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* TAB A: MY AGENDA */}
         {activeTab === "agenda" && (
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-              <h2 className="text-lg font-bold text-slate-950">Patient Visit Schedule</h2>
+          <div className="card overflow-hidden animate-fade-in">
+            <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900" style={{ fontFamily: 'var(--font-outfit)' }}>Patient Visit Schedule</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Your upcoming and historical patient appointments.</p>
+              </div>
+              <span className="badge badge-neutral">{appointments.length} visits</span>
             </div>
 
             {appointments.length === 0 ? (
@@ -457,48 +516,56 @@ export default function DoctorDashboard() {
                 No patient bookings scheduled.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100 text-left">
-                  <thead className="bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <tr>
-                      <th className="px-6 py-4">Patient Name</th>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Time Slot</th>
-                      <th className="px-6 py-4">Symptoms description</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm">
-                    {appointments.map((app) => (
-                      <tr key={app.id} className="hover:bg-slate-50/40">
-                        <td className="px-6 py-4 font-semibold text-slate-900">{app.patient_name}</td>
-                        <td className="px-6 py-4 text-slate-600">
-                          {new Date(app.appointment_date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-slate-700">
-                          {app.start_time.substring(0, 5)} - {app.end_time.substring(0, 5)}
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 max-w-xs truncate">
-                          {app.symptoms || <span className="text-slate-350 italic">None logged</span>}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                            app.status === "BOOKED" ? "text-emerald-700 bg-emerald-50" :
-                            app.status === "RESCHEDULED" ? "text-indigo-700 bg-indigo-50" :
-                            app.status === "COMPLETED" ? "text-teal-700 bg-teal-50" :
-                            "text-slate-500 bg-slate-100"
-                          }`}>
-                            {app.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right space-x-3">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left divide-y divide-slate-100">
+                <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Patient</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Date</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Time Slot</th>
+                    <th className="px-5 py-3.5">Symptoms</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {appointments.map((app) => (
+                    <tr key={app.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-black flex-shrink-0">
+                            {(app.patient_name || "P").charAt(0)}
+                          </div>
+                          <span className="font-bold text-slate-900 text-sm">{app.patient_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">
+                        {new Date(app.appointment_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm font-mono text-slate-700 whitespace-nowrap">
+                        {app.start_time.substring(0, 5)} – {app.end_time.substring(0, 5)}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 max-w-sm truncate">
+                        {app.symptoms || <span className="text-slate-300 italic">None logged</span>}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className={`badge ${
+                          app.status === "BOOKED" ? "badge-success" :
+                          app.status === "RESCHEDULED" ? "badge-info" :
+                          app.status === "COMPLETED" ? "bg-teal-50 text-teal-800 border border-teal-200" :
+                          "badge-neutral"
+                        }`}>
+                          {app.status}
+                        </span>
+                      </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
                           {app.status === "COMPLETED" && (
                             <button
                               onClick={() => setViewingVisitSummary(app)}
-                              className="text-xs font-bold text-teal-600 hover:text-teal-700"
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 active:scale-95 transition-all cursor-pointer"
                             >
-                              View Summary
+                              Summary
                             </button>
                           )}
                           {app.status !== "CANCELLED" && app.status !== "COMPLETED" && (
@@ -513,18 +580,19 @@ export default function DoctorDashboard() {
                                     setMedications([{ medicine_name: "", dosage: "", frequency: "", duration: "", instructions: "" }]);
                                   }
                                 }}
-                                className="text-xs font-bold text-teal-650 hover:text-teal-700"
+                                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 transition-all cursor-pointer"
                               >
-                                Complete Visit
+                                Complete
                               </button>
                               <button
                                 onClick={() => handleCancelAppointment(app.id)}
-                                className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:border-rose-300 active:scale-95 transition-all cursor-pointer"
                               >
                                 Cancel
                               </button>
                             </>
                           )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -537,11 +605,13 @@ export default function DoctorDashboard() {
 
         {/* TAB B: MY PROFILE */}
         {activeTab === "profile" && (
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-950 mb-1">Clinical Information</h2>
-            <p className="text-xs text-slate-500 mb-6">Modify details visible to patients during slot bookings.</p>
+          <div className="card p-6 md:p-7 animate-fade-in">
+            <div className="mb-6">
+              <h2 className="text-base font-bold text-slate-900">Clinical Information</h2>
+              <p className="text-xs text-slate-500 mt-1">Modify details visible to patients during slot bookings.</p>
+            </div>
 
-            <form onSubmit={handleUpdateProfile} className="space-y-6">
+            <form onSubmit={handleUpdateProfile} className="space-y-5">
               {editSuccess && (
                 <div className="bg-emerald-50 text-emerald-800 text-xs p-3 rounded-lg border border-emerald-100 font-semibold">
                   Profile updated successfully!
@@ -553,40 +623,88 @@ export default function DoctorDashboard() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Specialization</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-600">Specialization</label>
                   <input
                     type="text"
                     required
                     value={specialization}
                     onChange={(e) => setSpecialization(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                    placeholder="Pediatrics, Orthopedics..."
+                    className="input-field"
+                    placeholder="e.g. Pediatrics, Orthopedics"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Appointment Slot Duration (mins)</label>
-                  <select
-                    value={slotDuration}
-                    onChange={(e) => setSlotDuration(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
-                  >
-                    <option value={15}>15 minutes</option>
-                    <option value={30}>30 minutes</option>
-                    <option value={45}>45 minutes</option>
-                    <option value={60}>60 minutes</option>
-                  </select>
+                
+                {/* Custom Themed Slot Duration Dropdown */}
+                <div className="space-y-1.5" ref={slotDurationRef}>
+                  <label className="block text-xs font-bold text-slate-600">Appointment Slot Duration</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsSlotDurationOpen(!isSlotDurationOpen)}
+                      className={`w-full input-field flex items-center justify-between gap-2 text-left cursor-pointer transition-all ${
+                        isSlotDurationOpen ? "border-teal-500 ring-2 ring-teal-500/20" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-teal-500 flex-shrink-0"></span>
+                        <span className="font-semibold text-slate-800 text-sm">{slotDuration} minutes</span>
+                      </div>
+                      <svg
+                        className={`h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                          isSlotDurationOpen ? "rotate-180 text-teal-600" : ""
+                        }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {isSlotDurationOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-30 animate-fade-in-scale">
+                        {[15, 30, 45, 60].map((dur) => (
+                          <button
+                            key={dur}
+                            type="button"
+                            onClick={() => {
+                              setSlotDuration(dur);
+                              setIsSlotDurationOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                              slotDuration === dur
+                                ? "bg-teal-50 text-teal-800 font-bold"
+                                : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-800 font-bold text-sm">{dur} minutes</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">
+                                {dur <= 30 ? "Standard" : "Extended"}
+                              </span>
+                            </div>
+                            {slotDuration === dur && (
+                              <svg className="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Biography</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-600">Biography</label>
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  className="input-field resize-none"
                   placeholder="Share a short summary of your medical career..."
                 />
               </div>
@@ -601,11 +719,11 @@ export default function DoctorDashboard() {
               </div>
             </form>
 
-            <div className="border-t border-slate-100 mt-8 pt-8">
-              <h2 className="text-lg font-bold text-slate-950 mb-1">Integrations & Sync</h2>
-              <p className="text-xs text-slate-500 mb-6">Manage external services connected to your account.</p>
+            <div className="border-t border-slate-100 mt-6 pt-6">
+              <h2 className="text-sm font-bold text-slate-900 mb-0.5">Integrations & Sync</h2>
+              <p className="text-xs text-slate-500 mb-5">Manage external services connected to your account.</p>
               
-              <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 rounded-xl bg-white border border-slate-200/60 shadow-sm flex items-center justify-center text-2xl">
                     📅
@@ -758,14 +876,14 @@ export default function DoctorDashboard() {
                   </div>
                   <div>
                     <span className="font-bold text-slate-500">Suggested Diagnostic Questions:</span>
-                    <ul className="list-disc list-inside mt-1 text-slate-705 space-y-1">
+                    <ul className="list-disc pl-5 mt-1.5 text-slate-800 space-y-1.5">
                       {selectedVisit.ai_suggested_questions &&
                         (() => {
                           try {
                             const qs = JSON.parse(selectedVisit.ai_suggested_questions);
-                            return Array.isArray(qs) ? qs.map((q, idx) => <li key={idx}>{q}</li>) : <li>{qs}</li>;
+                            return Array.isArray(qs) ? qs.map((q, idx) => <li key={idx} className="pl-1">{q}</li>) : <li className="pl-1">{qs}</li>;
                           } catch {
-                            return <li>{selectedVisit.ai_suggested_questions}</li>;
+                            return <li className="pl-1">{selectedVisit.ai_suggested_questions}</li>;
                           }
                         })()
                       }
@@ -928,57 +1046,95 @@ export default function DoctorDashboard() {
       {/* MODAL 2: VIEW VISIT SUMMARY RECEIPT */}
       {viewingVisitSummary && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full p-6 relative">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full p-6 md:p-8 relative animate-fade-in-scale">
+            {/* Close Button */}
             <button
               onClick={() => setViewingVisitSummary(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              className="absolute top-5 right-5 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer z-20"
+              aria-label="Close summary"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
+              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l18 18" />
               </svg>
             </button>
 
-            <h3 className="text-xl font-bold text-slate-950 mb-1">Consultation Summary</h3>
-            <p className="text-xs text-slate-400 mb-6">Patient: {viewingVisitSummary.patient_name} | Date: {new Date(viewingVisitSummary.appointment_date).toLocaleDateString()}</p>
+            {/* Header */}
+            <div className="border-b border-slate-100 pb-5 mb-6 pr-12">
+              <div className="flex items-center gap-3.5">
+                <div className="h-12 w-12 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-black shadow-xs flex-shrink-0">
+                  {(viewingVisitSummary.patient_name || "P").charAt(0)}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>
+                      Consultation Summary
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-teal-50 text-teal-800 border border-teal-200">
+                      {viewingVisitSummary.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Patient: <strong className="text-slate-800 font-bold">{viewingVisitSummary.patient_name}</strong> &middot; Visit #{viewingVisitSummary.id} &middot; {new Date(viewingVisitSummary.appointment_date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              <div className="text-xs">
-                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Symptom Log</span>
-                <div className="p-3 bg-slate-50 rounded-xl text-slate-700">{viewingVisitSummary.symptoms}</div>
+            <div className="space-y-5 max-h-[62vh] overflow-y-auto pr-1.5">
+              {/* Section 1: Symptom Log */}
+              <div className="p-4.5 bg-amber-50/70 border border-amber-200/60 rounded-2xl space-y-1.5">
+                <div className="flex items-center gap-2 text-amber-900 text-xs font-black uppercase tracking-wider">
+                  <span>⚠️</span> Patient Reported Symptoms
+                </div>
+                <p className="text-sm font-semibold text-amber-950 leading-relaxed pl-6">
+                  {viewingVisitSummary.symptoms || "No symptoms recorded during pre-booking."}
+                </p>
               </div>
 
-              <div className="text-xs">
-                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Clinical Notes</span>
-                <div className="p-3 bg-slate-50 rounded-xl text-slate-700 whitespace-pre-wrap">{viewingVisitSummary.clinical_notes}</div>
+              {/* Section 2: Clinical Notes */}
+              <div className="p-4.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1.5">
+                <div className="flex items-center gap-2 text-teal-900 text-xs font-black uppercase tracking-wider">
+                  <span>🩺</span> Clinical Diagnosis &amp; Physician Notes
+                </div>
+                <div className="text-sm font-medium text-slate-800 leading-relaxed whitespace-pre-wrap pl-6">
+                  {viewingVisitSummary.clinical_notes || "No doctor notes logged."}
+                </div>
               </div>
 
-              <div className="text-xs">
-                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Prescriptions</span>
-                <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50">
-                  <table className="w-full text-[11px] text-left border-collapse">
+              {/* Section 3: Prescriptions */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-slate-900 text-xs font-black uppercase tracking-wider">
+                  <span>💊</span> Prescribed Medications
+                </div>
+                <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-xs text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-100/80 text-slate-500 border-b border-slate-200/50">
-                        <th className="px-3 py-2 font-bold">Medicine</th>
-                        <th className="px-3 py-2 font-bold">Dosage</th>
-                        <th className="px-3 py-2 font-bold">Frequency</th>
-                        <th className="px-3 py-2 font-bold">Duration</th>
-                        <th className="px-3 py-2 font-bold">Instructions</th>
+                      <tr className="bg-teal-50/80 text-teal-900 border-b border-teal-100 text-[11px] font-extrabold uppercase tracking-wider">
+                        <th className="px-4 py-2.5">Medicine</th>
+                        <th className="px-4 py-2.5">Dosage</th>
+                        <th className="px-4 py-2.5">Frequency</th>
+                        <th className="px-4 py-2.5">Duration</th>
+                        <th className="px-4 py-2.5">Instructions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 text-slate-800 bg-white">
                       {viewingVisitSummary.prescriptions && viewingVisitSummary.prescriptions.length > 0 ? (
                         viewingVisitSummary.prescriptions.map((med, idx) => (
-                          <tr key={idx}>
-                            <td className="px-3 py-2 font-semibold text-slate-900">{med.medicine_name}</td>
-                            <td className="px-3 py-2">{med.dosage}</td>
-                            <td className="px-3 py-2">{med.frequency}</td>
-                            <td className="px-3 py-2">{med.duration}</td>
-                            <td className="px-3 py-2 text-slate-500 italic">{med.instructions || "None"}</td>
+                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-4 py-3 font-bold text-slate-900">{med.medicine_name}</td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-md font-bold text-xs bg-teal-50 text-teal-800 border border-teal-200/60">
+                                {med.dosage}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-slate-700">{med.frequency}</td>
+                            <td className="px-4 py-3 font-medium text-slate-700">{med.duration}</td>
+                            <td className="px-4 py-3 text-slate-500 italic">{med.instructions || "As directed"}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className="px-3 py-3 text-center text-slate-400 italic">No prescriptions issued.</td>
+                          <td colSpan={5} className="px-4 py-6 text-center text-slate-400 italic">No prescriptions issued for this visit.</td>
                         </tr>
                       )}
                     </tbody>
@@ -986,45 +1142,46 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* POST-VISIT AI PATIENT FRIENDLY SUMMARY */}
-              <div className="p-4 bg-teal-50/20 border border-teal-100 rounded-xl space-y-3">
-                <div className="text-xs font-black text-teal-955 flex items-center gap-1">
-                  <span>🤖</span> AI Patient-Friendly Translation
+              {/* Section 4: AI Patient Friendly Translation */}
+              <div className="p-5 bg-teal-50/70 border border-teal-200/80 rounded-2xl space-y-3 shadow-2xs">
+                <div className="text-xs font-black text-teal-900 flex items-center gap-1.5 uppercase tracking-wider">
+                  <span>🤖</span> AI Patient-Friendly Care Translation
                 </div>
                 {viewingVisitSummary.ai_post_visit_status === "SUCCESS" || viewingVisitSummary.ai_post_visit_status === "FAILED" ? (
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <span className="font-bold text-slate-500">Friendly Summary:</span>
-                      <p className="text-slate-800 leading-relaxed mt-1 font-medium">{viewingVisitSummary.ai_patient_summary}</p>
+                  <div className="space-y-3 text-sm">
+                    <div className="bg-white/80 border border-teal-100 p-3.5 rounded-xl">
+                      <span className="text-xs font-bold text-teal-900 block mb-1">Plain Language Summary:</span>
+                      <p className="text-slate-800 leading-relaxed font-medium">{viewingVisitSummary.ai_patient_summary}</p>
                     </div>
-                    <div>
-                      <span className="font-bold text-slate-500">Care Instructions:</span>
-                      <ul className="list-disc list-inside mt-1 text-slate-707 space-y-1">
-                        {viewingVisitSummary.ai_follow_up_instructions &&
-                          (() => {
+                    {viewingVisitSummary.ai_follow_up_instructions && (
+                      <div className="bg-white/80 border border-teal-100 p-3.5 rounded-xl">
+                        <span className="text-xs font-bold text-teal-900 block mb-1">Next Steps &amp; Recovery Plan:</span>
+                        <ul className="list-disc pl-5 mt-1.5 text-slate-800 space-y-1.5 font-medium">
+                          {(() => {
                             try {
                               const insts = JSON.parse(viewingVisitSummary.ai_follow_up_instructions);
-                              return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx}>{i}</li>) : <li>{insts}</li>;
+                              return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx} className="pl-1">{i}</li>) : <li className="pl-1">{insts}</li>;
                             } catch {
-                              return <li>{viewingVisitSummary.ai_follow_up_instructions}</li>;
+                              return <li className="pl-1">{viewingVisitSummary.ai_follow_up_instructions}</li>;
                             }
-                          })()
-                        }
-                      </ul>
-                    </div>
+                          })()}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-450 italic">
+                  <div className="text-xs text-slate-400 italic">
                     AI Patient Translation is compiling in the background.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-50 mt-4">
+            {/* Footer */}
+            <div className="flex justify-end pt-5 border-t border-slate-100 mt-5">
               <button
                 onClick={() => setViewingVisitSummary(null)}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl"
+                className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-sm transition-all cursor-pointer"
               >
                 Close Summary
               </button>

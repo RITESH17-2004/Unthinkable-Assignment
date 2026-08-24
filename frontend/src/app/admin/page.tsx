@@ -67,6 +67,28 @@ export default function AdminDashboard() {
   const [newLeaveReason, setNewLeaveReason] = useState("");
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [conflictList, setConflictList] = useState<any[]>([]);
+  const [doctorSearch, setDoctorSearch] = useState("");
+  const [scheduleDoctorSearch, setScheduleDoctorSearch] = useState("");
+
+  const filteredDoctors = doctors.filter((doc) => {
+    const query = doctorSearch.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      doc.name.toLowerCase().includes(query) ||
+      doc.email.toLowerCase().includes(query) ||
+      (doc.doctor_profile?.specialization || "").toLowerCase().includes(query)
+    );
+  });
+
+  const scheduleFilteredDoctors = doctors.filter((doc) => {
+    const query = scheduleDoctorSearch.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      doc.name.toLowerCase().includes(query) ||
+      doc.email.toLowerCase().includes(query) ||
+      (doc.doctor_profile?.specialization || "").toLowerCase().includes(query)
+    );
+  });
 
   const fetchDoctors = async (token: string) => {
     try {
@@ -326,38 +348,78 @@ export default function AdminDashboard() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-400 font-medium">Loading admin portal...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      {/* Navigation */}
-      <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-20">
+      {/* ── Navigation ── */}
+      <header className="glass-nav sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="MediFlow Logo" className="h-9 w-9 object-contain rounded-xl shadow-xs" />
+                <span className="font-bold text-slate-900 text-lg tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>
+                  Medi<span className="text-teal-600">Flow</span>
+                </span>
               </div>
-              <span className="font-bold text-lg text-slate-900 tracking-tight">CareSync</span>
+
+              {/* Desktop Nav Tabs in Header */}
+              <nav className="hidden md:flex items-center gap-1">
+                {[
+                  { key: "doctors",  label: "Doctors List" },
+                  { key: "schedule", label: "Schedule & Leaves" },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      if (tab.key === "schedule") {
+                        if (doctors.length > 0 && !selectedDoctor) {
+                          selectDoctorForSchedule(doctors[0]);
+                        } else if (selectedDoctor) {
+                          setActiveTab("schedule");
+                        } else {
+                          alert("Please add a doctor first.");
+                        }
+                      } else {
+                        setActiveTab("doctors");
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                      activeTab === tab.key
+                        ? "bg-teal-50 text-teal-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-semibold text-slate-800">{user.name}</div>
-                <div className="text-xs text-slate-400 capitalize">{user.role.toLowerCase()}</div>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-full py-1 pl-1 pr-3 shadow-2xs">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800">{user.name}</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-rose-100/80 text-rose-700 border border-rose-200/60">
+                    Admin
+                  </span>
+                </div>
               </div>
               
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all duration-200"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Sign Out
@@ -366,119 +428,184 @@ export default function AdminDashboard() {
           </div>
         </div>
       </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow">
         
-        {/* Header Title */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Admin Portal</h1>
-            <p className="text-slate-500 text-sm mt-1.5">Manage doctor profile accounts, slot durations, schedules, and leaves.</p>
-          </div>
-          <div className="flex gap-2">
+        {/* Mobile Navigation */}
+        <div className="flex md:hidden bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm mb-6 gap-1">
+          {[
+            { key: "doctors",  label: "Doctors List" },
+            { key: "schedule", label: "Schedule & Leaves" },
+          ].map(tab => (
             <button
-              onClick={() => setActiveTab("doctors")}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
-                activeTab === "doctors" ? "bg-teal-600 text-white shadow-md shadow-teal-600/10" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Doctors List
-            </button>
-            <button
+              key={tab.key}
               onClick={() => {
-                if (doctors.length > 0 && !selectedDoctor) {
-                  selectDoctorForSchedule(doctors[0]);
-                } else if (selectedDoctor) {
-                  setActiveTab("schedule");
+                if (tab.key === "schedule") {
+                  if (doctors.length > 0 && !selectedDoctor) {
+                    selectDoctorForSchedule(doctors[0]);
+                  } else if (selectedDoctor) {
+                    setActiveTab("schedule");
+                  } else {
+                    alert("Please add a doctor first.");
+                  }
                 } else {
-                  alert("Please add a doctor first.");
+                  setActiveTab("doctors");
                 }
               }}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
-                activeTab === "schedule" ? "bg-teal-600 text-white shadow-md shadow-teal-600/10" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === tab.key ? "bg-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              Configure Schedule & Leaves
+              {tab.label}
             </button>
+          ))}
+        </div>
+
+        {/* Header Banner */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-teal-700 via-teal-800 to-slate-900 rounded-2xl p-6 md:p-7 shadow-lg text-white mb-6">
+          <div className="absolute right-0 top-0 h-full w-1/3 opacity-10">
+            <svg viewBox="0 0 200 200" fill="none" className="h-full w-full">
+              <circle cx="160" cy="40" r="120" stroke="white" strokeWidth="40" />
+            </svg>
+          </div>
+          <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-teal-400/20 border border-teal-300/30 text-teal-200 text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                Admin Portal
+              </div>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>
+                {activeTab === "doctors" ? "Manage Doctor Accounts" : "Configure Schedules & Leaves"}
+              </h1>
+              <p className="text-teal-100/80 text-sm mt-1">
+                {activeTab === "doctors" ? "Provision profiles, credentials, slot durations, and account statuses." : "Configure weekly availability and log absence records for doctors."}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* TAB 1: DOCTORS LIST */}
         {activeTab === "doctors" && (
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-lg font-bold text-slate-900">Doctor Profiles</h2>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-sm transition-all"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Doctor
-              </button>
+          <div className="card overflow-hidden animate-fade-in w-full">
+            <div className="px-6 py-4.5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900" style={{ fontFamily: 'var(--font-outfit)' }}>Doctor Profiles</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{filteredDoctors.length} of {doctors.length} registered doctor{doctors.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative flex-grow sm:w-72">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={doctorSearch}
+                    onChange={(e) => setDoctorSearch(e.target.value)}
+                    placeholder="Search doctor, email, specialty..."
+                    className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-800 font-medium"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all cursor-pointer flex-shrink-0"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Doctor
+                </button>
+              </div>
             </div>
 
-            {doctors.length === 0 ? (
-              <div className="text-center py-16 text-slate-400">
-                No doctor profiles found. Click "Add Doctor" to create one.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100 text-left">
-                  <thead className="bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+            <div className="overflow-x-auto min-h-[300px] w-full">
+              <table className="w-full text-left divide-y divide-slate-100">
+                <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Name</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Email</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Specialization</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Slot</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredDoctors.length === 0 ? (
                     <tr>
-                      <th className="px-6 py-4">Name</th>
-                      <th className="px-6 py-4">Email</th>
-                      <th className="px-6 py-4">Specialization</th>
-                      <th className="px-6 py-4">Slot Duration</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <td colSpan={6} className="text-center py-20 text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <svg className="h-9 w-9 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <span className="italic text-sm">
+                            {doctors.length === 0
+                              ? "No doctor profiles found. Click Add Doctor to create one."
+                              : "No doctors match your search criteria."}
+                          </span>
+                          {doctorSearch && (
+                            <button
+                              onClick={() => setDoctorSearch("")}
+                              className="text-xs text-teal-600 font-bold hover:underline mt-1 cursor-pointer"
+                            >
+                              Clear search query
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm">
-                    {doctors.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-slate-50/40">
-                        <td className="px-6 py-4 font-semibold text-slate-950">{doc.name}</td>
-                        <td className="px-6 py-4 text-slate-500">{doc.email}</td>
-                        <td className="px-6 py-4 text-slate-700">
-                          {doc.doctor_profile?.specialization || <span className="text-slate-400">Not set</span>}
+                  ) : (
+                    filteredDoctors.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-black flex-shrink-0">
+                              {(doc.name || "D").charAt(0)}
+                            </div>
+                            <span className="font-bold text-slate-900 text-sm">{doc.name}</span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-700">
-                          {doc.doctor_profile?.slot_duration ? `${doc.doctor_profile.slot_duration} mins` : "30 mins"}
+                        <td className="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">{doc.email}</td>
+                        <td className="px-5 py-3.5 text-sm font-medium text-slate-800 whitespace-nowrap">
+                          {doc.doctor_profile?.specialization || <span className="text-slate-300 italic">Not set</span>}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${doc.is_active ? "text-emerald-700 bg-emerald-50" : "text-slate-500 bg-slate-100"}`}>
+                        <td className="px-5 py-3.5 text-sm text-slate-600 font-mono whitespace-nowrap">
+                          {doc.doctor_profile?.slot_duration ? `${doc.doctor_profile.slot_duration} min` : "30 min"}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className={`badge ${doc.is_active ? "badge-success" : "badge-neutral"}`}>
                             {doc.is_active ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          <button
-                            onClick={() => selectDoctorForSchedule(doc)}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
-                          >
-                            Schedule
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingDoctor(doc);
-                              setEditName(doc.name);
-                              setEditActive(doc.is_active);
-                              setEditSpecialization(doc.doctor_profile?.specialization || "");
-                              setEditSlotDuration(doc.doctor_profile?.slot_duration || 30);
-                              setEditBio(doc.doctor_profile?.bio || "");
-                            }}
-                            className="text-xs font-bold text-teal-600 hover:text-teal-700"
-                          >
-                            Edit
-                          </button>
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => selectDoctorForSchedule(doc)}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer flex-shrink-0"
+                            >
+                              Schedule
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingDoctor(doc);
+                                setEditName(doc.name);
+                                setEditActive(doc.is_active);
+                                setEditSpecialization(doc.doctor_profile?.specialization || "");
+                                setEditSlotDuration(doc.doctor_profile?.slot_duration || 30);
+                                setEditBio(doc.doctor_profile?.bio || "");
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 active:scale-95 transition-all cursor-pointer flex-shrink-0"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -487,28 +614,57 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column: Doctor Selection & Info */}
             <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                <h3 className="text-base font-bold text-slate-900 mb-4">Select Doctor</h3>
-                <div className="space-y-2">
-                  {doctors.map((doc) => (
-                    <button
-                      key={doc.id}
-                      onClick={() => selectDoctorForSchedule(doc)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold transition-all flex justify-between items-center ${
-                        selectedDoctor?.id === doc.id
-                          ? "border-teal-500 bg-teal-50/20 text-teal-950 font-bold"
-                          : "border-slate-100 bg-white hover:bg-slate-50 text-slate-700"
-                      }`}
-                    >
-                      <div>
-                        <div>{doc.name}</div>
-                        <div className="text-xs text-slate-400 font-normal mt-0.5">{doc.doctor_profile?.specialization || "General"}</div>
-                      </div>
-                      <svg className={`h-4 w-4 ${selectedDoctor?.id === doc.id ? "text-teal-600" : "text-slate-300"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  ))}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-bold text-slate-900">Select Doctor</h3>
+                  <span className="badge badge-neutral">{doctors.length} total</span>
+                </div>
+
+                {/* Doctor Search Filter */}
+                <div className="relative mb-3">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={scheduleDoctorSearch}
+                    onChange={(e) => setScheduleDoctorSearch(e.target.value)}
+                    placeholder="Quick find doctor..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
+                  {scheduleFilteredDoctors.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-6 italic">No doctors match search.</p>
+                  ) : (
+                    scheduleFilteredDoctors.map((doc) => (
+                      <button
+                        key={doc.id}
+                        onClick={() => selectDoctorForSchedule(doc)}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all flex justify-between items-center cursor-pointer ${
+                          selectedDoctor?.id === doc.id
+                            ? "border-teal-500 bg-teal-50/50 text-teal-950 font-bold shadow-2xs"
+                            : "border-slate-100 bg-white hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="h-7 w-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black flex-shrink-0">
+                            {(doc.name || "D").charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 truncate">{doc.name}</div>
+                            <div className="text-[11px] text-slate-400 font-normal truncate">{doc.doctor_profile?.specialization || "General"}</div>
+                          </div>
+                        </div>
+                        <svg className={`h-4 w-4 flex-shrink-0 ${selectedDoctor?.id === doc.id ? "text-teal-600" : "text-slate-300"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -526,10 +682,21 @@ export default function AdminDashboard() {
                     <>
                       {/* Section A: Working Hours */}
                       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                        <h3 className="text-lg font-bold text-slate-950 mb-1">
-                          Working Hours Config
-                        </h3>
-                        <p className="text-xs text-slate-500 mb-6">Set weekly check-in schedule for Dr. {selectedDoctor.name}.</p>
+                        {/* Selected Doctor Header */}
+                        <div className="flex items-center gap-3 pb-4 mb-5 border-b border-slate-100">
+                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-sm font-black shadow-xs flex-shrink-0">
+                            {(selectedDoctor.name || "D").charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-slate-900 leading-tight">Dr. {selectedDoctor.name}</h3>
+                            <span className="text-xs text-slate-500">{selectedDoctor.doctor_profile?.specialization || "General Specialist"} &middot; {selectedDoctor.email}</span>
+                          </div>
+                        </div>
+
+                        <div className="mb-6">
+                          <h3 className="text-lg font-bold text-slate-950 mb-1">Weekly Working Hours</h3>
+                          <p className="text-xs text-slate-500">Configure appointment check-in availability per day.</p>
+                        </div>
 
                         <div className="space-y-4">
                           {workingHours.map((wh, index) => (
@@ -543,7 +710,7 @@ export default function AdminDashboard() {
                                     updated[index].is_available = e.target.checked;
                                     setWorkingHours(updated);
                                   }}
-                                  className="h-4.5 w-4.5 text-teal-600 focus:ring-teal-500 rounded border-slate-300 bg-white"
+                                  className="h-4.5 w-4.5 accent-teal-600 cursor-pointer rounded border-slate-300 bg-white"
                                 />
                                 {weekdays[wh.day_of_week]}
                               </label>
@@ -596,31 +763,31 @@ export default function AdminDashboard() {
                         </h3>
                         <p className="text-xs text-slate-500 mb-6">Register leave days for Dr. {selectedDoctor.name}.</p>
 
-                        <form onSubmit={handleAddLeave} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <form onSubmit={handleAddLeave} className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8 pb-6 border-b border-slate-100">
                           <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Leave Date</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">Leave Date</label>
                             <input
                               type="date"
                               required
                               value={newLeaveDate}
                               onChange={(e) => setNewLeaveDate(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 bg-white"
+                              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Reason (Optional)</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">Reason (Optional)</label>
                             <input
                               type="text"
                               value={newLeaveReason}
                               onChange={(e) => setNewLeaveReason(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 bg-white"
+                              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                               placeholder="Vacation, conference..."
                             />
                           </div>
-                          <div className="flex items-end">
+                          <div className="flex flex-col justify-end">
                             <button
                               type="submit"
-                              className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm py-2 rounded-xl shadow-md transition-all active:scale-[0.98]"
+                              className="w-full bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold text-sm py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"
                             >
                               Add Leave
                             </button>
@@ -642,7 +809,7 @@ export default function AdminDashboard() {
                                   </div>
                                   <button
                                     onClick={() => handleDeleteLeave(leave.id)}
-                                    className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                                    className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:border-rose-300 active:scale-95 transition-all cursor-pointer"
                                   >
                                     Remove
                                   </button>
@@ -682,7 +849,7 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-bold text-slate-950 mb-1">Create Doctor Profile</h3>
             <p className="text-xs text-slate-500 mb-6">Create a doctor credentials account and profile.</p>
 
-            <form onSubmit={handleAddDoctor} className="space-y-4">
+            <form onSubmit={handleAddDoctor} className="space-y-4.5">
               {formError && (
                 <div className="bg-rose-50 text-rose-800 text-xs p-3 rounded-lg border border-rose-100 font-medium">
                   {formError}
@@ -690,59 +857,59 @@ export default function AdminDashboard() {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Full Name</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Full Name</label>
                 <input
                   type="text"
                   required
                   value={docName}
                   onChange={(e) => setDocName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                   placeholder="Dr. Gregory House"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Email</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Email Address</label>
                 <input
                   type="email"
                   required
                   value={docEmail}
                   onChange={(e) => setDocEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                   placeholder="house@caresync.com"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Login Password</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Login Password</label>
                 <input
                   type="password"
                   required
                   value={docPassword}
                   onChange={(e) => setDocPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                   placeholder="••••••••"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Specialization</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Specialization</label>
                 <input
                   type="text"
                   required
                   value={docSpecialization}
                   onChange={(e) => setDocSpecialization(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                   placeholder="Cardiology, Pediatrics..."
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Slot Appointment Duration (mins)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Slot Appointment Duration (mins)</label>
                 <select
                   value={docSlotDuration}
                   onChange={(e) => setDocSlotDuration(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 >
                   <option value={15}>15 minutes</option>
                   <option value={30}>30 minutes</option>
@@ -752,13 +919,13 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Bio (Optional)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Bio (Optional)</label>
                 <textarea
                   value={docBio}
                   onChange={(e) => setDocBio(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="Add a bio details about doctor..."
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  placeholder="Add bio details about doctor..."
                 />
               </div>
 
@@ -798,35 +965,35 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-bold text-slate-950 mb-1">Edit Doctor Profile</h3>
             <p className="text-xs text-slate-500 mb-6">Modify Dr. {editingDoctor.name}'s profile details.</p>
 
-            <form onSubmit={handleUpdateDoctor} className="space-y-4">
+            <form onSubmit={handleUpdateDoctor} className="space-y-4.5">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Name</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Name</label>
                 <input
                   type="text"
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Specialization</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Specialization</label>
                 <input
                   type="text"
                   required
                   value={editSpecialization}
                   onChange={(e) => setEditSpecialization(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Slot Duration (mins)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Slot Duration (mins)</label>
                 <select
                   value={editSlotDuration}
                   onChange={(e) => setEditSlotDuration(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 >
                   <option value={15}>15 minutes</option>
                   <option value={30}>30 minutes</option>
@@ -836,22 +1003,22 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Bio (Optional)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Bio (Optional)</label>
                 <textarea
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 />
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editActive}
                     onChange={(e) => setEditActive(e.target.checked)}
-                    className="h-4.5 w-4.5 text-teal-600 rounded border-slate-300 bg-white"
+                    className="h-4.5 w-4.5 accent-teal-600 cursor-pointer rounded border-slate-300 bg-white"
                   />
                   Doctor account is Active
                 </label>

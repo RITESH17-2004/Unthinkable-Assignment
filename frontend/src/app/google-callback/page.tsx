@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function GoogleCallbackPage() {
         });
 
         if (res.ok) {
-          alert("Successfully connected Google Calendar to CareSync!");
+          alert("Successfully connected Google Calendar to MediFlow!");
           goBackToDashboard();
         } else {
           const errData = await res.json().catch(() => ({}));
@@ -115,5 +115,19 @@ export default function GoogleCallbackPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }

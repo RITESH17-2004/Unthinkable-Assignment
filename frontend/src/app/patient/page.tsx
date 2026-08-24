@@ -109,7 +109,19 @@ export default function PatientDashboard() {
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("");
+  const [isSpecOpen, setIsSpecOpen] = useState(false);
+  const specDropdownRef = useRef<HTMLDivElement | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<"ALL" | "BOOKED" | "RESCHEDULED" | "CANCELLED">("ALL");
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (specDropdownRef.current && !specDropdownRef.current.contains(e.target as Node)) {
+        setIsSpecOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Google Calendar Integration States
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -448,7 +460,7 @@ export default function PatientDashboard() {
 
   // Extract all unique specializations for the filter buttons
   const specializations = Array.from(
-    new Set(doctors.map((d) => d.doctor_profile?.specialization).filter(Boolean))
+    new Set(doctors.map((d) => d.doctor_profile?.specialization).filter((s): s is string => Boolean(s)))
   );
 
   // Appointments ledger filters
@@ -467,8 +479,9 @@ export default function PatientDashboard() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-400 font-medium">Loading your health portal...</p>
       </div>
     );
   }
@@ -476,50 +489,61 @@ export default function PatientDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-20">
+      {/* ── Header ── */}
+      <header className="glass-nav sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            <div className="flex items-center gap-6">
+              {/* Logo */}
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="MediFlow Logo" className="h-9 w-9 object-contain rounded-xl shadow-xs" />
+                <span className="font-bold text-slate-900 text-lg tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>
+                  Medi<span className="text-teal-600">Flow</span>
+                </span>
               </div>
-              <span className="font-bold text-lg text-slate-900 tracking-tight">CareSync</span>
+
+              {/* Desktop Nav Tabs */}
+              <nav className="hidden md:flex items-center gap-1">
+                {[
+                  { key: "dashboard", label: "Dashboard" },
+                  { key: "search",    label: "Find Specialist" },
+                  { key: "appointments", label: "My Ledger" },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setActiveTab(tab.key as "dashboard" | "search" | "appointments"); setSelectedAppointment(null); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      activeTab === tab.key
+                        ? "bg-teal-50 text-teal-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
             </div>
 
-            <nav className="hidden md:flex gap-6 text-sm font-bold">
-              <button
-                onClick={() => { setActiveTab("dashboard"); setSelectedAppointment(null); }}
-                className={`py-5 border-b-2 transition-all ${activeTab === "dashboard" ? "border-teal-600 text-teal-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => { setActiveTab("search"); setSelectedAppointment(null); }}
-                className={`py-5 border-b-2 transition-all ${activeTab === "search" ? "border-teal-600 text-teal-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                Find Specialist
-              </button>
-              <button
-                onClick={() => { setActiveTab("appointments"); setSelectedAppointment(null); }}
-                className={`py-5 border-b-2 transition-all ${activeTab === "appointments" ? "border-teal-600 text-teal-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                My Ledger
-              </button>
-            </nav>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-semibold text-slate-800">{user.name}</div>
-                <div className="text-xs text-slate-400 capitalize">{user.role.toLowerCase()}</div>
+            {/* User info + logout */}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-full py-1 pl-1 pr-3 shadow-2xs">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800">{user.name}</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-teal-100/70 text-teal-800 border border-teal-200/60">
+                    {user.role.toLowerCase()}
+                  </span>
+                </div>
               </div>
-              
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all duration-200 active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg bg-white hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
               >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
                 Sign Out
               </button>
             </div>
@@ -528,83 +552,132 @@ export default function PatientDashboard() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
         
-        {/* Mobile Navigation Header Tabs */}
-        <div className="flex md:hidden bg-white border border-slate-200 rounded-xl p-1 shadow-sm mb-6 justify-around text-xs font-bold">
-          <button onClick={() => { setActiveTab("dashboard"); setSelectedAppointment(null); }} className={`px-3 py-2 rounded-lg ${activeTab === "dashboard" ? "bg-teal-600 text-white" : "text-slate-600"}`}>Dashboard</button>
-          <button onClick={() => { setActiveTab("search"); setSelectedAppointment(null); }} className={`px-3 py-2 rounded-lg ${activeTab === "search" ? "bg-teal-600 text-white" : "text-slate-600"}`}>Find Doctor</button>
-          <button onClick={() => { setActiveTab("appointments"); setSelectedAppointment(null); }} className={`px-3 py-2 rounded-lg ${activeTab === "appointments" ? "bg-teal-600 text-white" : "text-slate-600"}`}>Ledger</button>
+        {/* Mobile Navigation */}
+        <div className="flex md:hidden bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm mb-6 gap-1">
+          {[
+            { key: "dashboard", label: "Dashboard" },
+            { key: "search",    label: "Find Doctor" },
+            { key: "appointments", label: "Ledger" },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key as "dashboard" | "search" | "appointments"); setSelectedAppointment(null); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === tab.key ? "bg-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* TAB 1: OVERVIEW DASHBOARD */}
         {activeTab === "dashboard" && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Banner */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.name}</h1>
-                <p className="text-slate-500 text-sm mt-1">Here is a quick summary of your upcoming medical logs and consultation reports.</p>
+          <div className="space-y-6 animate-fade-in">
+            {/* Welcome Banner */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-teal-600 to-cyan-600 rounded-2xl p-6 md:p-8 shadow-lg text-white">
+              <div className="absolute right-0 top-0 h-full w-1/3 opacity-10">
+                <svg viewBox="0 0 200 200" fill="none" className="h-full w-full">
+                  <circle cx="160" cy="40" r="120" stroke="white" strokeWidth="40" />
+                </svg>
               </div>
-              <button
-                onClick={() => setActiveTab("search")}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md shadow-teal-600/10 transition-all cursor-pointer"
-              >
-                Schedule New Visit
-              </button>
+              <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <p className="text-teal-100 text-sm font-semibold">Good day,</p>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-0.5" style={{ fontFamily: 'var(--font-outfit)' }}>{user.name}</h1>
+                  <p className="text-teal-100/80 text-sm mt-1.5">Here&apos;s a summary of your upcoming medical visits.</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("search")}
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-95 border border-white/30 text-white font-bold text-sm px-5 py-2.5 rounded-xl backdrop-blur-sm transition-all cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Visit
+                </button>
+              </div>
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Scheduled Consultations</div>
-                <div className="text-2xl font-black text-slate-900 mt-2">{upcomingAppointments.length} visits</div>
-              </div>
-              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Closest Visit Date</div>
-                <div className="text-lg font-bold text-teal-800 mt-2">
-                  {upcomingAppointments.length > 0
-                    ? new Date(upcomingAppointments[0].appointment_date).toLocaleDateString()
-                    : "None scheduled"}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="card p-5 flex items-center gap-4">
+                <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Visits</div>
+                  <div className="text-2xl font-black text-slate-900 mt-0.5">{upcomingAppointments.length}</div>
                 </div>
               </div>
-              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Registered Ledger Items</div>
-                <div className="text-2xl font-black text-slate-900 mt-2">{appointments.length} total</div>
+              <div className="card p-5 flex items-center gap-4">
+                <div className="h-11 w-11 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Next Appointment</div>
+                  <div className="text-base font-bold text-slate-900 mt-0.5">
+                    {upcomingAppointments.length > 0
+                      ? new Date(upcomingAppointments[0].appointment_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                      : "None scheduled"}
+                  </div>
+                </div>
+              </div>
+              <div className="card p-5 flex items-center gap-4">
+                <div className="h-11 w-11 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 flex-shrink-0">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Records</div>
+                  <div className="text-2xl font-black text-slate-900 mt-0.5">{appointments.length}</div>
+                </div>
               </div>
             </div>
 
             {/* Layout Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left widgets */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h3 className="text-base font-bold text-slate-900">Upcoming Visits</h3>
-                    <button onClick={() => setActiveTab("appointments")} className="text-xs font-bold text-teal-600 hover:text-teal-700">View Ledger</button>
+              <div className="lg:col-span-2 space-y-5">
+                <div className="card overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-slate-900">Upcoming Visits</h3>
+                    <button onClick={() => setActiveTab("appointments")} className="text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer">View All →</button>
                   </div>
-                  <div className="p-6 divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100">
                     {upcomingAppointments.length === 0 ? (
-                      <p className="text-sm text-slate-450 italic py-4 text-center">No upcoming consultations found.</p>
+                      <p className="text-sm text-slate-400 italic py-8 text-center">No upcoming consultations scheduled.</p>
                     ) : (
                       upcomingAppointments.slice(0, 3).map((app) => (
-                        <div key={app.id} className="py-4 flex justify-between items-center first:pt-0 last:pb-0 gap-4">
-                          <div>
-                            <h4 className="font-bold text-slate-900">{app.doctor_name}</h4>
-                            <p className="text-xs text-slate-500 mt-0.5">{app.specialization}</p>
-                            <div className="text-xs text-slate-400 mt-1">
-                              {new Date(app.appointment_date).toLocaleDateString()} at {app.start_time.substring(0, 5)}
+                        <div key={app.id} className="px-5 py-4 flex justify-between items-center gap-4 hover:bg-slate-50/70 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-black flex-shrink-0">
+                              {(app.doctor_name || "D").charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 leading-tight">{app.doctor_name}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5">{app.specialization}</p>
+                              <div className="text-xs text-slate-400 mt-0.5">
+                                {new Date(app.appointment_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} &middot; {app.start_time.substring(0, 5)}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 capitalize">
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="badge badge-success">
                               {app.status.toLowerCase()}
                             </span>
                             <button
                               onClick={() => { setSelectedAppointment(app); setActiveTab("details"); }}
-                              className="px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg hover:bg-slate-50"
+                              className="px-3 py-1.5 border border-slate-200 text-xs font-bold text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
                             >
-                              Details
+                              View
                             </button>
                           </div>
                         </div>
@@ -615,10 +688,10 @@ export default function PatientDashboard() {
               </div>
 
               {/* Right widgets */}
-              <div className="lg:col-span-1 space-y-6">
+              <div className="lg:col-span-1 space-y-4">
                 {/* Active prescriptions widget */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
-                  <div className="h-12 w-12 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 mb-4 shadow-sm">
+                <div className="card p-5 text-center space-y-3">
+                  <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mx-auto">
                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
@@ -678,7 +751,7 @@ export default function PatientDashboard() {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Authorize CareSync to automatically add booked appointments to your personal Google Calendar.
+                        Authorize MediFlow to automatically add booked appointments to your personal Google Calendar.
                       </p>
                       <button
                         onClick={handleConnectGoogle}
@@ -698,66 +771,172 @@ export default function PatientDashboard() {
         {/* TAB 2: FIND SPECIALIST */}
         {activeTab === "search" && (
           <div className="space-y-6 animate-fade-in">
-            {/* Find Specialist Header */}
+            {/* Header */}
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Find Specialist</h2>
-              <p className="text-xs text-slate-400 mt-1">Search active doctor profiles and filter by medical specializations.</p>
+              <h2 className="text-xl font-black text-slate-900" style={{ fontFamily: 'var(--font-outfit)' }}>Find a Specialist</h2>
+              <p className="text-xs text-slate-400 mt-1">Browse active doctor profiles and book a consultation.</p>
             </div>
 
             {/* Search & filters row */}
-            <div className="flex flex-col sm:flex-row gap-4 bg-white border border-slate-100 p-4 rounded-xl shadow-sm">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by doctor name or specialty..."
-                className="flex-grow px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-800 focus:outline-none"
-              />
-              <select
-                value={specializationFilter}
-                onChange={(e) => setSpecializationFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-800"
-              >
-                <option value="">All Specializations</option>
-                {specializations.map((spec, idx) => (
-                  <option key={idx} value={spec}>{spec}</option>
-                ))}
-              </select>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-grow">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by specialist name or specialty..."
+                  className="input-field"
+                  style={{ paddingLeft: '2.6rem' }}
+                />
+              </div>
+              {/* Custom Specialization Dropdown */}
+              <div className="relative sm:w-64" ref={specDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsSpecOpen(!isSpecOpen)}
+                  className={`w-full input-field flex items-center justify-between gap-2 text-left cursor-pointer transition-all ${
+                    isSpecOpen ? "border-teal-500 ring-2 ring-teal-500/20" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="h-2 w-2 rounded-full bg-teal-500 flex-shrink-0"></span>
+                    <span className="font-semibold text-slate-800 text-sm truncate">
+                      {specializationFilter || "All Specializations"}
+                    </span>
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                      isSpecOpen ? "rotate-180 text-teal-600" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {isSpecOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-full sm:w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-30 animate-fade-in-scale max-h-64 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSpecializationFilter("");
+                        setIsSpecOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                        specializationFilter === ""
+                          ? "bg-teal-50 text-teal-800 font-extrabold"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-6 w-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-xs">
+                          ✦
+                        </div>
+                        <span>All Specializations</span>
+                      </div>
+                      {specializationFilter === "" && (
+                        <svg className="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100"></div>
+
+                    {specializations.map((spec, idx) => {
+                      const count = doctors.filter(d => (d.doctor_profile?.specialization || "General") === spec).length;
+                      const isSelected = specializationFilter === spec;
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setSpecializationFilter(spec);
+                            setIsSpecOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-teal-50 text-teal-800 font-bold"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="h-6 w-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                              {spec.charAt(0)}
+                            </div>
+                            <span className="truncate">{spec}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500">
+                              {count} doc{count !== 1 ? 's' : ''}
+                            </span>
+                            {isSelected && (
+                              <svg className="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Doctors Grid */}
             {filteredDoctors.length === 0 ? (
-              <div className="text-center py-16 text-slate-450 italic">
-                No active specialist profiles match your search criteria.
+              <div className="text-center py-16 text-slate-400 italic">
+                <svg className="h-12 w-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                No active specialist profiles match your search.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredDoctors.map((doc) => (
-                  <div key={doc.id} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-extrabold text-slate-900 text-base">{doc.name}</h4>
-                        <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-teal-50 text-teal-700 rounded border border-teal-100">
-                          {doc.doctor_profile?.specialization || "General"}
-                        </span>
+                  <div key={doc.id} className="card card-hover p-5 flex flex-col justify-between group cursor-default">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-base font-black flex-shrink-0 shadow-sm">
+                          {(doc.name || "D").charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-900 text-sm leading-tight">{doc.name}</h4>
+                          <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-teal-50 text-teal-700 rounded-md border border-teal-100">
+                            {doc.doctor_profile?.specialization || "General"}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-400 mt-2">Appointment duration: {doc.doctor_profile?.slot_duration} minutes</p>
+
+                      <p className="text-xs text-slate-400">
+                        <span className="font-semibold text-slate-600">{doc.doctor_profile?.slot_duration} min</span> per consultation
+                      </p>
                       
                       {doc.doctor_profile?.bio ? (
-                        <p className="text-xs text-slate-500 mt-4 leading-relaxed line-clamp-3 italic">"{doc.doctor_profile.bio}"</p>
+                        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 italic">&ldquo;{doc.doctor_profile.bio}&rdquo;</p>
                       ) : (
-                        <p className="text-xs text-slate-355 mt-4 italic">No bio logged.</p>
+                        <p className="text-xs text-slate-300 italic">No bio available.</p>
                       )}
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-50">
+                    <div className="mt-5 pt-4 border-t border-slate-100">
                       <button
                         onClick={() => {
                           setSelectedDoctor(doc);
                           setReschedulingAppointment(null);
                           setActiveTab("book");
                         }}
-                        className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2 rounded-xl text-center shadow-sm"
+                        className="w-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"
                       >
                         Book Consultation
                       </button>
@@ -784,12 +963,12 @@ export default function PatientDashboard() {
                     setSelectedDoctor(null);
                     setActiveTab(reschedulingAppointment ? "appointments" : "search");
                   }}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 mb-6"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-teal-600 mb-5 group cursor-pointer transition-colors"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
-                  Go Back
+                  Back
                 </button>
 
                 <h3 className="text-lg font-bold text-slate-900 mb-1">
@@ -993,24 +1172,24 @@ export default function PatientDashboard() {
 
         {/* TAB 4: MY APPOINTMENTS LEDGER */}
         {activeTab === "appointments" && (
-          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
+          <div className="card overflow-hidden animate-fade-in">
             {/* Header filters */}
-            <div className="p-6 border-b border-slate-100 bg-slate-50/55 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="px-6 py-4.5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Appointments Ledger</h3>
+                <h2 className="text-lg font-black text-slate-900" style={{ fontFamily: 'var(--font-outfit)' }}>Appointments Ledger</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Filter and manage your scheduled clinical history.</p>
               </div>
 
-              {/* Tabs filter ledger */}
-              <div className="flex gap-2">
+              {/* Filter pills */}
+              <div className="flex flex-wrap gap-1.5">
                 {(["ALL", "BOOKED", "RESCHEDULED", "CANCELLED"] as const).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => setLedgerFilter(filter)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                       ledgerFilter === filter
                         ? "bg-teal-600 border-teal-600 text-white shadow-sm"
-                        : "bg-white border-slate-200 text-slate-650 hover:bg-slate-50"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     {filter}
@@ -1021,71 +1200,80 @@ export default function PatientDashboard() {
 
             {/* Table */}
             {filteredAppointments.length === 0 ? (
-              <div className="text-center py-16 text-slate-450 italic">
+              <div className="text-center py-16 text-slate-400 italic">
                 No matching appointments found.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100 text-left">
-                  <thead className="bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left divide-y divide-slate-100">
+                  <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-4">Clinic Specialist</th>
-                      <th className="px-6 py-4">Specialization</th>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Time Slot</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Specialist</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Specialization</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Date</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Slot</th>
+                      <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                      <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm">
                     {filteredAppointments.map((app) => (
-                      <tr key={app.id} className="hover:bg-slate-50/40">
-                        <td className="px-6 py-4 font-semibold text-slate-900">{app.doctor_name}</td>
-                        <td className="px-6 py-4 text-slate-500">{app.specialization}</td>
-                        <td className="px-6 py-4 text-slate-600">
-                          {new Date(app.appointment_date).toLocaleDateString()}
+                      <tr key={app.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-black flex-shrink-0">
+                              {(app.doctor_name || "D").charAt(0)}
+                            </div>
+                            <span className="font-bold text-slate-900 text-sm">{app.doctor_name}</span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 font-medium text-slate-700">
-                          {app.start_time.substring(0, 5)} - {app.end_time.substring(0, 5)}
+                        <td className="px-5 py-3.5 text-sm font-medium text-slate-700 whitespace-nowrap">{app.specialization}</td>
+                        <td className="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">
+                          {new Date(app.appointment_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                            app.status === "BOOKED" ? "text-emerald-700 bg-emerald-50" :
-                            app.status === "RESCHEDULED" ? "text-indigo-700 bg-indigo-50" :
-                            "text-rose-700 bg-rose-50"
+                        <td className="px-5 py-3.5 text-sm font-mono text-slate-700 whitespace-nowrap">
+                          {app.start_time.substring(0, 5)} – {app.end_time.substring(0, 5)}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className={`badge ${
+                            app.status === "BOOKED" ? "badge-success" :
+                            app.status === "RESCHEDULED" ? "badge-info" :
+                            "badge-danger"
                           }`}>
                             {app.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right space-x-3">
-                          <button
-                            onClick={() => { setSelectedAppointment(app); setActiveTab("details"); }}
-                            className="text-xs font-bold text-teal-655 hover:text-teal-750"
-                          >
-                            Details
-                          </button>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => { setSelectedAppointment(app); setActiveTab("details"); }}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 active:scale-95 transition-all cursor-pointer"
+                            >
+                              Details
+                            </button>
 
-                          {app.status !== "CANCELLED" && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setReschedulingAppointment(app);
-                                  setSelectedDoctor(null);
-                                  setBookingDate(app.appointment_date);
-                                  setActiveTab("book");
-                                }}
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
-                              >
-                                Reschedule
-                              </button>
-                              <button
-                                onClick={() => handleCancelAppointment(app.id)}
-                                className="text-xs font-bold text-rose-600 hover:text-rose-700"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
+                            {app.status !== "CANCELLED" && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setReschedulingAppointment(app);
+                                    setSelectedDoctor(null);
+                                    setBookingDate(app.appointment_date);
+                                    setActiveTab("book");
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Reschedule
+                                </button>
+                                <button
+                                  onClick={() => handleCancelAppointment(app.id)}
+                                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:border-rose-300 active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1098,18 +1286,18 @@ export default function PatientDashboard() {
 
         {/* TAB 5: APPOINTMENT DETAILS */}
         {activeTab === "details" && selectedAppointment && (
-          <div className="max-w-2xl mx-auto bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
-            {/* Header receipt card */}
-            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+          <div className="max-w-2xl mx-auto card overflow-hidden animate-fade-in">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex justify-between items-center">
               <div>
                 <button
                   onClick={() => setActiveTab("appointments")}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 mb-2"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-teal-600 mb-4 group cursor-pointer transition-colors"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  <svg className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
-                  Ledger List
+                  <span>Back to Ledger</span>
                 </button>
                 <h3 className="text-lg font-bold text-slate-900">Clinical Visit Receipt</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Booking ID: #CS-{selectedAppointment.id}</p>
@@ -1244,14 +1432,14 @@ export default function PatientDashboard() {
                         </div>
                         <div>
                           <span className="font-bold text-slate-500">Care Instructions:</span>
-                          <ul className="list-disc list-inside mt-1 text-slate-700 space-y-1">
+                          <ul className="list-disc pl-5 mt-1.5 text-slate-700 space-y-1.5">
                             {selectedAppointment.ai_follow_up_instructions &&
                               (() => {
                                 try {
                                   const insts = JSON.parse(selectedAppointment.ai_follow_up_instructions);
-                                  return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx}>{i}</li>) : <li>{insts}</li>;
+                                  return Array.isArray(insts) ? insts.map((i, idx) => <li key={idx} className="pl-1">{i}</li>) : <li className="pl-1">{insts}</li>;
                                 } catch {
-                                  return <li>{selectedAppointment.ai_follow_up_instructions}</li>;
+                                  return <li className="pl-1">{selectedAppointment.ai_follow_up_instructions}</li>;
                                 }
                               })()
                             }
