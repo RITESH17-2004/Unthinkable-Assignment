@@ -292,8 +292,17 @@ def add_doctor_leave(
                     conflict.start_time.strftime("%H:%M")
                 )
             except Exception as e:
-                # Silently catch Celery queuing failures so DB updates are preserved
-                pass
+                try:
+                    from app.tasks.notification import send_leave_notifications
+                    send_leave_notifications(
+                        conflict.patient_email,
+                        conflict.patient_name,
+                        doctor_name,
+                        str(conflict.appointment_date),
+                        conflict.start_time.strftime("%H:%M")
+                    )
+                except Exception as direct_err:
+                    pass
 
     return LeaveConflictResponse(
         leave_id=db_leave.id,

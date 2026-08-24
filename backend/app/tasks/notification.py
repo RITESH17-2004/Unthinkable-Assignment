@@ -132,10 +132,11 @@ def send_booking_confirmation(self, appointment_id: int):
 
     except Exception as e:
         logger.error(f"Failed to process booking confirmation task: {e}")
-        try:
-            self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error("Max retries exceeded for booking confirmation task.")
+        if hasattr(self, 'request') and self.request and self.request.id:
+            try:
+                self.retry(exc=e)
+            except Exception:
+                logger.error("Max retries exceeded for booking confirmation task.")
     finally:
         db.close()
 
@@ -161,10 +162,11 @@ def send_cancellation_email(self, patient_email: str, doctor_email: str, patient
         send_email_message(doctor_email, doc_subject, doc_body, "CANCELLATION")
     except Exception as e:
         logger.error(f"Failed to send cancellation email: {e}")
-        try:
-            self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error("Max retries exceeded for cancellation email task.")
+        if hasattr(self, 'request') and self.request and self.request.id:
+            try:
+                self.retry(exc=e)
+            except Exception:
+                logger.error("Max retries exceeded for cancellation email task.")
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -181,10 +183,11 @@ def send_leave_notifications(self, patient_email: str, patient_name: str, doctor
         send_email_message(patient_email, subject, body, "LEAVE_ALERT")
     except Exception as e:
         logger.error(f"Failed to send doctor leave alert email: {e}")
-        try:
-            self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error("Max retries exceeded for leave alert email task.")
+        if hasattr(self, 'request') and self.request and self.request.id:
+            try:
+                self.retry(exc=e)
+            except Exception:
+                logger.error("Max retries exceeded for leave alert email task.")
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)

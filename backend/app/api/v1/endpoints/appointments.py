@@ -298,7 +298,12 @@ def confirm_appointment_booking(
         from app.tasks.notification import send_booking_confirmation
         send_booking_confirmation.delay(db_appointment.id)
     except Exception as e:
-        logger.error(f"Failed to queue booking confirmation Celery task: {e}")
+        logger.error(f"Failed to queue booking confirmation Celery task, falling back to direct dispatch: {e}")
+        try:
+            from app.tasks.notification import send_booking_confirmation
+            send_booking_confirmation(db_appointment.id)
+        except Exception as direct_err:
+            logger.error(f"Direct booking confirmation email dispatch failed: {direct_err}")
 
     # Trigger Google Calendar Sync Task
     try:
@@ -406,7 +411,19 @@ def cancel_appointment(
                 app.start_time.strftime("%H:%M")
             )
         except Exception as e:
-            logger.error(f"Failed to queue cancellation Celery task: {e}")
+            logger.error(f"Celery task queueing offline, falling back to direct email dispatch: {e}")
+            try:
+                from app.tasks.notification import send_cancellation_email
+                send_cancellation_email(
+                    patient.email,
+                    doc_user.email,
+                    patient.name,
+                    doc_user.name,
+                    str(app.appointment_date),
+                    app.start_time.strftime("%H:%M")
+                )
+            except Exception as direct_err:
+                logger.error(f"Direct cancellation email dispatch failed: {direct_err}")
 
         doc_conn_id = doc_conn.id if doc_conn else None
         pat_conn_id = pat_conn.id if pat_conn else None
