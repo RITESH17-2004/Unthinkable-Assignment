@@ -40,7 +40,8 @@
 11. [Default Seeded Credentials](#credentials)
 12. [Key API Endpoints](#api-endpoints)
 13. [Project Directory Structure](#structure)
-14. [Author & Submission Note](#author)
+14. [Visual Gallery](#gallery)
+15. [Author & Submission Note](#author)
 
 ---
 
@@ -362,6 +363,10 @@ docker compose logs -f
    EMAILS_FROM_EMAIL=noreply@mediflow.com
    ```
 
+> [!NOTE]
+> **Google OAuth 2.0 Testing Mode Note:**  
+> In accordance with Google Cloud Platform security policies, the Google Calendar OAuth Client is currently in **Testing Mode** (Unverified App State). OAuth 2.0 consent logins are restricted to whitelisted Google Cloud Console test accounts (`chaudhariritesh2004@gmail.com`). Unlisted external email addresses attempting 1-click Google OAuth on the live production deployment will receive a standard Google `403 Access Blocked: App Has Not Completed Google Verification` prompt until formal domain verification is requested.
+
 5. **Seed Default Admin & Doctor Test Accounts**:
    ```bash
    python seed.py
@@ -622,9 +627,87 @@ Unthinkable Assignment/
 └── README.md                                # Project documentation
 ```
 
+## <a id="gallery"></a>📸 14. Visual Gallery
+
+<table width="100%" style="border-collapse: collapse;">
+  <!-- ROW 1 -->
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <b>1. MediFlow Home & Showcase</b><br><br>
+      <img src="assets/gallery/landing.png" width="100%" alt="Home Page" /><br><br>
+      <i>Main clinical landing presentation with quick portal access for Patients, Doctors, and Admins.</i>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <b>2. Secure Multi-Tenant Sign In</b><br><br>
+      <img src="assets/gallery/login.png" width="100%" alt="Login Page" /><br><br>
+      <i>Split-panel authentication portal with role-based routing (Patient, Doctor, Admin).</i>
+    </td>
+  </tr>
+  <!-- ROW 2 -->
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <b><br>3. Patient Registration & Password Meter</b><br><br>
+      <img src="assets/gallery/register.png" width="100%" alt="Registration Page" /><br><br>
+      <i>Patient signup interface featuring live password strength scoring and validation.</i>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <b><br>4. Patient Portal & Dashboard</b><br><br>
+      <img src="assets/gallery/patient_dashboard.png" width="100%" alt="Patient Dashboard" /><br><br>
+      <i>Patient control panel featuring specialist discovery, custom specialty filters, and appointment history.</i>
+    </td>
+  </tr>
+  <!-- ROW 3 -->
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <b><br>5. Atomic 10-Minute Slot Hold Lock</b><br><br>
+      <img src="assets/gallery/slot_hold.png" width="100%" alt="Slot Lock Banner" /><br><br>
+      <i>Live 10-minute slot reservation countdown banner preventing concurrent double-booking.</i>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <b><br>6. AI Pre-Visit Symptom Triage</b><br><br>
+      <img src="assets/gallery/ai_triage.png" width="100%" alt="AI Symptom Triage" /><br><br>
+      <i>Pre-consultation symptom logging triggering LLM urgency analysis (High/Medium/Low).</i>
+    </td>
+  </tr>
+  <!-- ROW 4 -->
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <b><br>7. Doctor Agenda & Visit Management</b><br><br>
+      <img src="assets/gallery/doctor_agenda.png" width="100%" alt="Doctor Agenda" /><br><br>
+      <i>Clinical visit schedule displaying appointment status pills (Pending, Held, Completed, Cancelled).</i>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <b><br>8. Doctor Consultation & Structured e-Rx</b><br><br>
+      <img src="assets/gallery/doctor_consultation.png" width="100%" alt="Doctor Consultation" /><br><br>
+      <i>Clinical assessment notes, AI pre-triage drawer, and multi-row dosage prescription table.</i>
+    </td>
+  </tr>
+  <!-- ROW 5 -->
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <b><br>9. Consultation Summary & AI Translation</b><br><br>
+      <img src="assets/gallery/visit_summary.png" width="100%" alt="Visit Summary Modal" /><br><br>
+      <i>Patient plain-language care summary with hanging bullet points, dosage tags, and non-overlapping header.</i>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <b><br>10. Admin Roster & Doctor Provisioning</b><br><br>
+      <img src="assets/gallery/admin_dashboard.png" width="100%" alt="Admin Dashboard" /><br><br>
+      <i>Administrator control panel for doctor onboarding, shift duration settings (15–60 min), and leave tracking.</i>
+    </td>
+  </tr>
+  <!-- ROW 6 -->
+  <tr>
+    <td width="100%" colSpan="2" align="center" valign="top">
+      <b><br>11. Real Email Notifications & Audit Trail</b><br><br>
+      <img src="assets/gallery/email_notifications.png" width="80%" alt="Email Inbox & Audit" /><br><br>
+      <i>Real SMTP email delivery in patient inbox alongside database notification audit logs.</i>
+    </td>
+  </tr>
+</table>
+
 ---
 
-## <a id="author"></a>👥 14. Author & Submission Note
+## <a id="author"></a>👥 15. Author & Submission Note
 
 *   **Author**: Ritesh Chaudhari
 *   **Repository**: [RITESH17-2004/Unthinkable-Assignment](https://github.com/RITESH17-2004/Unthinkable-Assignment)
