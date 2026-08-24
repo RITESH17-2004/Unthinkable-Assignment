@@ -61,8 +61,11 @@ def send_email_message(recipient: str, subject: str, body: str, notif_type: str,
 
     # 2. Secure SMTP TLS email transmission
     try:
+        # Use SMTP_USER as sender for Gmail/Yahoo compatibility if EMAILS_FROM_EMAIL is default
+        sender = settings.SMTP_USER if (settings.SMTP_USER and ("caresync.com" in settings.EMAILS_FROM_EMAIL or not settings.EMAILS_FROM_EMAIL)) else settings.EMAILS_FROM_EMAIL
+
         msg = MIMEMultipart()
-        msg["From"] = settings.EMAILS_FROM_EMAIL
+        msg["From"] = sender
         msg["To"] = recipient
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain"))
@@ -72,7 +75,7 @@ def send_email_message(recipient: str, subject: str, body: str, notif_type: str,
         if settings.SMTP_USER and settings.SMTP_PASSWORD:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         
-        server.sendmail(settings.EMAILS_FROM_EMAIL, recipient, msg.as_string())
+        server.sendmail(sender, recipient, msg.as_string())
         server.quit()
         
         logger.info(f"Email sent successfully via SMTP to {recipient}")

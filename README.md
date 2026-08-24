@@ -2,6 +2,17 @@
 
 > **MediFlow is an intelligent clinical healthcare platform featuring atomic slot reservation locks, dynamic scheduling engines, Google Calendar OAuth 2.0 synchronization, structured electronic prescriptions (e-Rx), distributed Celery & Redis background task processing, and multi-tenant Role-Based Access Control (RBAC).**
 
+[![Live Application](https://img.shields.io/badge/🚀_Live_Application-Vercel_Deployment-0d9488?style=for-the-badge)](https://unthinkable-assignment-om8hiejm7.vercel.app)
+[![Render Backend API](https://img.shields.io/badge/⚡_FastAPI_Backend-Render_Web_Service-0284c7?style=for-the-badge)](https://unthinkable-assignment-backend-j5i4.onrender.com/docs)
+[![Supabase Database](https://img.shields.io/badge/🗄️_Database-Supabase_PostgreSQL-3ecf8e?style=for-the-badge)](https://supabase.com)
+
+---
+
+### 🌐 Live Production Deployment
+* **Live Web Application (Vercel)**: [https://unthinkable-assignment-om8hiejm7.vercel.app](https://unthinkable-assignment-om8hiejm7.vercel.app)
+* **Live FastAPI & OpenAPI Docs (Render)**: [https://unthinkable-assignment-backend-j5i4.onrender.com/docs](https://unthinkable-assignment-backend-j5i4.onrender.com/docs)
+* **Cloud Database**: Supabase Managed PostgreSQL
+
 ---
 
 ## 📌 Table of Contents
@@ -613,10 +624,13 @@ Unthinkable Assignment/
 
 ---
 
-## <a id="author"></a>👥 11. Author & Submission Note
+## <a id="author"></a>👥 14. Author & Submission Note
 
 *   **Author**: Ritesh Chaudhari
 *   **Repository**: [RITESH17-2004/Unthinkable-Assignment](https://github.com/RITESH17-2004/Unthinkable-Assignment)
+*   **Live Web Application**: [https://unthinkable-assignment-om8hiejm7.vercel.app](https://unthinkable-assignment-om8hiejm7.vercel.app)
+*   **Live Backend & API Docs**: [https://unthinkable-assignment-backend-j5i4.onrender.com/docs](https://unthinkable-assignment-backend-j5i4.onrender.com/docs)
+*   **Cloud Infrastructure**: Vercel (Frontend Next.js 16), Render (Backend FastAPI), Supabase (Managed PostgreSQL)
 *   **Assignment**: Full-Stack Clinical Scheduling System Assessment (Unthinkable Solutions Recruitment)
 
 ---
