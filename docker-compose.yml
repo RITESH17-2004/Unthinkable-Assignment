@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # Redis - In-Memory Broker & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mediflow_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # FastAPI Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mediflow_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./sql_app.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - JWT_SECRET=mediflow_super_secret_jwt_key_2026_clinical
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=http://localhost:3000/google-callback
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Celery Asynchronous Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mediflow_celery_worker
+    restart: unless-stopped
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=sqlite:///./sql_app.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - JWT_SECRET=mediflow_super_secret_jwt_key_2026_clinical
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  # Celery Periodic Beat Scheduler
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mediflow_celery_beat
+    restart: unless-stopped
+    command: celery -A app.core.celery_app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=sqlite:///./sql_app.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  # Next.js Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mediflow_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  redis_data:
