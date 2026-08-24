@@ -70,8 +70,13 @@ def send_email_message(recipient: str, subject: str, body: str, notif_type: str,
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain"))
 
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
-        server.starttls()
+        port = int(settings.SMTP_PORT) if settings.SMTP_PORT else 587
+        if port == 465:
+            server = smtplib.SMTP_SSL(settings.SMTP_HOST, port, timeout=10)
+        else:
+            server = smtplib.SMTP(settings.SMTP_HOST, port, timeout=10)
+            server.starttls()
+
         if settings.SMTP_USER and settings.SMTP_PASSWORD:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         
