@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = "noreply@caresync.com"
 
+    # Google OAuth Configuration
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/google-callback"
+
     # CORS Configuration
     # We allow a string JSON list (e.g., '["http://localhost:3000"]') or a comma-separated list
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]

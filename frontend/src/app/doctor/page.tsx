@@ -34,6 +34,16 @@ interface DoctorLeave {
   reason: string | null;
 }
 
+interface Prescription {
+  id?: number;
+  appointment_id?: number;
+  medicine_name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  instructions?: string | null;
+}
+
 interface Appointment {
   id: number;
   patient_id: number;
@@ -45,7 +55,7 @@ interface Appointment {
   symptoms: string | null;
   patient_name: string | null;
   clinical_notes?: string | null;
-  prescriptions?: string | null;
+  prescriptions?: Prescription[];
   ai_urgency_level?: string | null;
   ai_chief_complaint?: string | null;
   ai_suggested_questions?: string | null;
@@ -79,8 +89,75 @@ export default function DoctorDashboard() {
   const [selectedVisit, setSelectedVisit] = useState<Appointment | null>(null);
   const [viewingVisitSummary, setViewingVisitSummary] = useState<Appointment | null>(null);
   const [clinicalNotes, setClinicalNotes] = useState("");
-  const [visitPrescriptions, setVisitPrescriptions] = useState("");
+  const [medications, setMedications] = useState<Prescription[]>([{ medicine_name: "", dosage: "", frequency: "", duration: "", instructions: "" }]);
   const [completeLoading, setCompleteLoading] = useState(false);
+
+  // Google Calendar Integration States
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleEnabled, setGoogleEnabled] = useState(true);
+
+  const fetchGoogleStatus = async (token: string) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGoogleConnected(data.connected);
+        setGoogleEmail(data.email || "");
+        setGoogleEnabled(data.enabled ?? true);
+      }
+    } catch (e) {
+      console.error("Failed to query Google Calendar connection status:", e);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/auth-url", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } else {
+        alert("Failed to get Google Calendar auth URL.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reach server.");
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/disconnect", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setGoogleConnected(false);
+        setGoogleEmail("");
+        alert("Google Calendar disconnected successfully.");
+      } else {
+        alert("Failed to disconnect Google Calendar.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reach server.");
+    }
+  };
 
   const fetchDoctorProfileAndSchedule = async (token: string | null) => {
     if (!token) return;
@@ -129,6 +206,11 @@ export default function DoctorDashboard() {
       });
       if (appRes.ok) {
         const appData = await appRes.json();
+        appData.sort((a: Appointment, b: Appointment) => {
+          const dateA = new Date(a.appointment_date + "T" + a.start_time);
+          const dateB = new Date(b.appointment_date + "T" + b.start_time);
+          return dateA.getTime() - dateB.getTime();
+        });
         setAppointments(appData);
       }
     } catch (e: any) {
@@ -157,6 +239,7 @@ export default function DoctorDashboard() {
         return;
       }
       fetchDoctorProfileAndSchedule(token);
+      fetchGoogleStatus(token);
     } catch (e) {
       localStorage.clear();
       router.push("/login");
@@ -218,9 +301,32 @@ export default function DoctorDashboard() {
   const handleCompleteVisit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVisit) return;
+
+    if (!clinicalNotes.trim()) {
+      alert("Clinical notes cannot be empty or blank.");
+      return;
+    }
+
+    // Filter out completely empty prescription rows
+    const activeMedications = medications.filter(
+      (m) => m.medicine_name.trim() || m.dosage.trim() || m.frequency.trim() || m.duration.trim() || m.instructions?.trim()
+    );
+
+    // Validate medication rows
+    for (let i = 0; i < activeMedications.length; i++) {
+      const med = activeMedications[i];
+      if (!med.medicine_name.trim() || !med.dosage.trim() || !med.frequency.trim() || !med.duration.trim()) {
+        alert(`Medication row #${i + 1} has empty fields. Medicine Name, Dosage, Frequency, and Duration are required.`);
+        return;
+      }
+    }
+
     setCompleteLoading(true);
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      setCompleteLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch(`http://localhost:8000/api/v1/appointments/${selectedVisit.id}/complete`, {
@@ -230,8 +336,8 @@ export default function DoctorDashboard() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          clinical_notes: clinicalNotes,
-          prescriptions: visitPrescriptions,
+          clinical_notes: clinicalNotes.trim(),
+          prescriptions: activeMedications,
         }),
       });
 
@@ -239,7 +345,7 @@ export default function DoctorDashboard() {
         alert("Visit report submitted successfully! AI summaries are being generated.");
         setSelectedVisit(null);
         setClinicalNotes("");
-        setVisitPrescriptions("");
+        setMedications([{ medicine_name: "", dosage: "", frequency: "", duration: "", instructions: "" }]);
         fetchDoctorProfileAndSchedule(token);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -401,7 +507,11 @@ export default function DoctorDashboard() {
                                 onClick={() => {
                                   setSelectedVisit(app);
                                   setClinicalNotes(app.clinical_notes || "");
-                                  setVisitPrescriptions(app.prescriptions || "");
+                                  if (app.prescriptions && app.prescriptions.length > 0) {
+                                    setMedications(app.prescriptions);
+                                  } else {
+                                    setMedications([{ medicine_name: "", dosage: "", frequency: "", duration: "", instructions: "" }]);
+                                  }
                                 }}
                                 className="text-xs font-bold text-teal-650 hover:text-teal-700"
                               >
@@ -490,6 +600,58 @@ export default function DoctorDashboard() {
                 </button>
               </div>
             </form>
+
+            <div className="border-t border-slate-100 mt-8 pt-8">
+              <h2 className="text-lg font-bold text-slate-950 mb-1">Integrations & Sync</h2>
+              <p className="text-xs text-slate-500 mb-6">Manage external services connected to your account.</p>
+              
+              <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-xl bg-white border border-slate-200/60 shadow-sm flex items-center justify-center text-2xl">
+                    📅
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Google Calendar Sync</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Automatically add your scheduled patient appointments to your calendar.</p>
+                  </div>
+                </div>
+
+                {!googleEnabled ? (
+                  <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                    <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl max-w-xs text-right">
+                      ⚠️ <strong>Demo Mode Notice:</strong> Google Calendar Integration is unconfigured in this deployment environment. Set OAuth keys in <code>.env</code> to connect.
+                    </span>
+                    <button
+                      disabled
+                      className="px-5 py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed w-full sm:w-auto"
+                    >
+                      Sync Disabled
+                    </button>
+                  </div>
+                ) : googleLoading ? (
+                  <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : googleConnected ? (
+                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 border border-slate-200 rounded-xl">
+                      Connected: <strong className="text-teal-700 font-bold">{googleEmail}</strong>
+                    </span>
+                    <button
+                      onClick={handleDisconnectGoogle}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleConnectGoogle}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-600/10 transition-all text-center cursor-pointer"
+                  >
+                    Connect Google Calendar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -632,15 +794,112 @@ export default function DoctorDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Prescriptions & Medications</label>
-                <textarea
-                  required
-                  value={visitPrescriptions}
-                  onChange={(e) => setVisitPrescriptions(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="List medications, dosage details, schedules, or recommendations (e.g. Paracetamol 500mg, 1-0-1)..."
-                />
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-bold text-slate-600">Prescriptions & Medications</label>
+                  <button
+                    type="button"
+                    onClick={() => setMedications([...medications, { medicine_name: "", dosage: "", frequency: "", duration: "", instructions: "" }])}
+                    className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                  >
+                    <span>+</span> Add Medication
+                  </button>
+                </div>
+                
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                  {medications.map((med, index) => (
+                    <div key={index} className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-2 relative">
+                      {medications.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setMedications(medications.filter((_, idx) => idx !== index))}
+                          className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 text-xs font-bold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Medicine Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Paracetamol"
+                            value={med.medicine_name}
+                            onChange={(e) => {
+                              const newMeds = [...medications];
+                              newMeds[index].medicine_name = e.target.value;
+                              setMedications(newMeds);
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Dosage *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 500mg"
+                            value={med.dosage}
+                            onChange={(e) => {
+                              const newMeds = [...medications];
+                              newMeds[index].dosage = e.target.value;
+                              setMedications(newMeds);
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Frequency *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 1-0-1"
+                            value={med.frequency}
+                            onChange={(e) => {
+                              const newMeds = [...medications];
+                              newMeds[index].frequency = e.target.value;
+                              setMedications(newMeds);
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Duration *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 7 days"
+                            value={med.duration}
+                            onChange={(e) => {
+                              const newMeds = [...medications];
+                              newMeds[index].duration = e.target.value;
+                              setMedications(newMeds);
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Instructions</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. After food"
+                            value={med.instructions || ""}
+                            onChange={(e) => {
+                              const newMeds = [...medications];
+                              newMeds[index].instructions = e.target.value;
+                              setMedications(newMeds);
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -694,8 +953,37 @@ export default function DoctorDashboard() {
               </div>
 
               <div className="text-xs">
-                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Prescriptions</span>
-                <div className="p-3 bg-slate-50 rounded-xl text-teal-850 font-medium whitespace-pre-wrap">{viewingVisitSummary.prescriptions}</div>
+                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Prescriptions</span>
+                <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50">
+                  <table className="w-full text-[11px] text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/80 text-slate-500 border-b border-slate-200/50">
+                        <th className="px-3 py-2 font-bold">Medicine</th>
+                        <th className="px-3 py-2 font-bold">Dosage</th>
+                        <th className="px-3 py-2 font-bold">Frequency</th>
+                        <th className="px-3 py-2 font-bold">Duration</th>
+                        <th className="px-3 py-2 font-bold">Instructions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {viewingVisitSummary.prescriptions && viewingVisitSummary.prescriptions.length > 0 ? (
+                        viewingVisitSummary.prescriptions.map((med, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2 font-semibold text-slate-900">{med.medicine_name}</td>
+                            <td className="px-3 py-2">{med.dosage}</td>
+                            <td className="px-3 py-2">{med.frequency}</td>
+                            <td className="px-3 py-2">{med.duration}</td>
+                            <td className="px-3 py-2 text-slate-500 italic">{med.instructions || "None"}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-3 text-center text-slate-400 italic">No prescriptions issued.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* POST-VISIT AI PATIENT FRIENDLY SUMMARY */}

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, admin_doctors, doctor_profile, public_doctors, appointments
+from app.api.v1.endpoints import health, auth, admin_doctors, doctor_profile, public_doctors, appointments, google_calendar
 
 api_router = APIRouter()
 
@@ -10,3 +10,4 @@ api_router.include_router(admin_doctors.router, prefix="/admin/doctors", tags=["
 api_router.include_router(doctor_profile.router, prefix="/doctor/profile", tags=["doctor-profile"])
 api_router.include_router(public_doctors.router, prefix="/doctors", tags=["doctors"])
 api_router.include_router(appointments.router, prefix="/appointments", tags=["appointments"])
+api_router.include_router(google_calendar.router, prefix="/google-calendar", tags=["google-calendar"])

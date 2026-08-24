@@ -35,6 +35,16 @@ interface TimeSlot {
   is_held: boolean;
 }
 
+interface Prescription {
+  id?: number;
+  appointment_id?: number;
+  medicine_name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  instructions?: string | null;
+}
+
 interface Appointment {
   id: number;
   patient_id: number;
@@ -48,7 +58,7 @@ interface Appointment {
   specialization: string | null;
   patient_name: string | null;
   clinical_notes?: string | null;
-  prescriptions?: string | null;
+  prescriptions?: Prescription[];
   ai_urgency_level?: string | null;
   ai_chief_complaint?: string | null;
   ai_suggested_questions?: string | null;
@@ -101,6 +111,73 @@ export default function PatientDashboard() {
   const [specializationFilter, setSpecializationFilter] = useState("");
   const [ledgerFilter, setLedgerFilter] = useState<"ALL" | "BOOKED" | "RESCHEDULED" | "CANCELLED">("ALL");
 
+  // Google Calendar Integration States
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleEnabled, setGoogleEnabled] = useState(true);
+
+  const fetchGoogleStatus = async (token: string) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGoogleConnected(data.connected);
+        setGoogleEmail(data.email || "");
+        setGoogleEnabled(data.enabled ?? true);
+      }
+    } catch (e) {
+      console.error("Failed to query Google Calendar connection status:", e);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/auth-url", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } else {
+        alert("Failed to get Google Calendar auth URL.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reach server.");
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/google-calendar/disconnect", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setGoogleConnected(false);
+        setGoogleEmail("");
+        alert("Google Calendar disconnected successfully.");
+      } else {
+        alert("Failed to disconnect Google Calendar.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reach server.");
+    }
+  };
+
   // Fetch doctors & appointments
   const fetchDoctors = async (token: string | null) => {
     if (!token) return;
@@ -151,6 +228,7 @@ export default function PatientDashboard() {
       setUser(parsedUser);
       fetchDoctors(token);
       fetchAppointments(token);
+      fetchGoogleStatus(token);
     } catch (e) {
       localStorage.clear();
       router.push("/login");
@@ -549,6 +627,67 @@ export default function PatientDashboard() {
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed max-w-xs">
                     Your active prescriptions and physician follow-up summaries will appear here once your medical visits are logged.
                   </p>
+                </div>
+
+                {/* Google Calendar Connection Widget */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 font-bold text-lg shadow-sm">
+                      📅
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Google Calendar</h3>
+                      <p className="text-[10px] text-slate-400">Sync visits & slot alerts</p>
+                    </div>
+                  </div>
+                  
+                  {!googleEnabled ? (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-amber-50 border border-amber-150 rounded-xl text-[11px] text-amber-800 leading-relaxed font-medium">
+                        ⚠️ <strong>Demo Mode Notice:</strong> Google Calendar Integration is unconfigured in this deployment environment. Set OAuth keys in <code>.env</code> to connect.
+                      </div>
+                      <button
+                        disabled
+                        className="w-full py-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold transition-all cursor-not-allowed"
+                      >
+                        Calendar Disabled
+                      </button>
+                    </div>
+                  ) : googleLoading ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : googleConnected ? (
+                    <div className="space-y-3">
+                      <div className="p-2.5 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[11px] font-bold text-emerald-800">Connected</span>
+                        </div>
+                        <span className="text-[10px] text-emerald-700 truncate max-w-[140px]" title={googleEmail}>
+                          {googleEmail}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleDisconnectGoogle}
+                        className="w-full py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Disconnect Calendar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Authorize CareSync to automatically add booked appointments to your personal Google Calendar.
+                      </p>
+                      <button
+                        onClick={handleConnectGoogle}
+                        className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-600/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>Connect Google Calendar</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1060,8 +1199,37 @@ export default function PatientDashboard() {
                   </div>
 
                   <div className="text-sm">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Prescribed Medications</div>
-                    <div className="p-3 bg-slate-50/60 rounded-xl text-teal-850 font-semibold whitespace-pre-wrap">{selectedAppointment.prescriptions}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Prescribed Medications</div>
+                    <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/80 text-slate-500 border-b border-slate-200/50">
+                            <th className="px-3 py-2 font-bold">Medicine</th>
+                            <th className="px-3 py-2 font-bold">Dosage</th>
+                            <th className="px-3 py-2 font-bold">Frequency</th>
+                            <th className="px-3 py-2 font-bold">Duration</th>
+                            <th className="px-3 py-2 font-bold">Instructions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                          {selectedAppointment.prescriptions && selectedAppointment.prescriptions.length > 0 ? (
+                            selectedAppointment.prescriptions.map((med, idx) => (
+                              <tr key={idx}>
+                                <td className="px-3 py-2 font-semibold text-slate-900">{med.medicine_name}</td>
+                                <td className="px-3 py-2">{med.dosage}</td>
+                                <td className="px-3 py-2">{med.frequency}</td>
+                                <td className="px-3 py-2">{med.duration}</td>
+                                <td className="px-3 py-2 text-slate-500 italic">{med.instructions || "None"}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-3 text-center text-slate-400 italic">No prescriptions issued.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   <div className="p-4 border border-indigo-50 bg-indigo-50/10 rounded-xl text-xs text-indigo-950 space-y-2">

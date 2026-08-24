@@ -300,6 +300,13 @@ def confirm_appointment_booking(
     except Exception as e:
         logger.error(f"Failed to queue booking confirmation Celery task: {e}")
 
+    # Trigger Google Calendar Sync Task
+    try:
+        from app.tasks.calendar import sync_appointment_event_task
+        sync_appointment_event_task.delay(db_appointment.id)
+    except Exception as e:
+        logger.error(f"Failed to queue Google Calendar sync Celery task: {e}")
+
     # Trigger pre-visit AI summary generation in background
     background_tasks.add_task(
         process_pre_visit_ai_summary,
@@ -384,6 +391,10 @@ def cancel_appointment(
     db.commit()
 
     if patient and doc_user:
+        from app.models.google_connection import GoogleCalendarConnection
+        doc_conn = db.query(GoogleCalendarConnection).filter(GoogleCalendarConnection.user_id == doc_user.id).first()
+        pat_conn = db.query(GoogleCalendarConnection).filter(GoogleCalendarConnection.user_id == patient.id).first()
+
         try:
             from app.tasks.notification import send_cancellation_email
             send_cancellation_email.delay(
@@ -396,6 +407,20 @@ def cancel_appointment(
             )
         except Exception as e:
             logger.error(f"Failed to queue cancellation Celery task: {e}")
+
+        doc_conn_id = doc_conn.id if doc_conn else None
+        pat_conn_id = pat_conn.id if pat_conn else None
+        if (doc_conn_id and app.doctor_google_event_id) or (pat_conn_id and app.patient_google_event_id):
+            try:
+                from app.tasks.calendar import delete_appointment_event_task
+                delete_appointment_event_task.delay(
+                    doctor_connection_id=doc_conn_id,
+                    patient_connection_id=pat_conn_id,
+                    doctor_event_id=app.doctor_google_event_id,
+                    patient_event_id=app.patient_google_event_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to queue Google Calendar deletion Celery task: {e}")
 
     return {"message": "Appointment cancelled successfully"}
 
@@ -457,6 +482,13 @@ def reschedule_appointment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="This slot was already booked. Please choose another slot."
         )
+
+    # Trigger Google Calendar Reschedule Sync Task
+    try:
+        from app.tasks.calendar import sync_appointment_event_task
+        sync_appointment_event_task.delay(app.id)
+    except Exception as e:
+        logger.error(f"Failed to queue Google Calendar reschedule sync Celery task: {e}")
 
     res = AppointmentResponse.model_validate(app)
     doc = db.query(User).join(DoctorProfile).filter(DoctorProfile.id == app.doctor_profile_id).first()
